@@ -36,7 +36,7 @@ The challenge: determine which items involved formal votes, classify them by pol
 The naive approach: send every document to GPT-4 and ask it to extract structured data. This works for small-scale demos but fails as an engineering solution:
 
 1. **Cost**: At ~$0.02/document, processing 200K meetings/year costs $4,000/year with linear scaling.
-2. **Speed**: API calls add seconds per document. Our rule engine processes 261 meetings in <1 second.
+2. **Speed**: API calls add seconds per document. Our rule engine processes 355 meetings in <1 second.
 3. **Determinism**: LLMs can hallucinate vote counts or misclassify items. Pattern matching is predictable and testable.
 4. **Technical depth**: "Call API, get JSON" is prompt engineering. Building a system that learns platform conventions and handles edge cases is software engineering.
 

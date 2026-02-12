@@ -1,0 +1,31 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Data (too large for git)
+data/raw_minutes/
+data/database.sqlite
+data/extracted/
+
+# Logs
+*.log
+scrape_results.json
+scrape_summary.json
+extraction.log
+validation_sample.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+playwright-report/

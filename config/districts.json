@@ -1,0 +1,641 @@
+[
+  {
+    "district_id": "3620580",
+    "district_name": "Buffalo City School District",
+    "state": "NY",
+    "enrollment": 31000,
+    "county": "Erie",
+    "minutes_url": "https://go.boarddocs.com/ny/buffalo/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3623580",
+    "district_name": "Rochester City School District",
+    "state": "NY",
+    "enrollment": 26000,
+    "county": "Monroe",
+    "minutes_url": "https://go.boarddocs.com/ny/rochny/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3627810",
+    "district_name": "Syracuse City School District",
+    "state": "NY",
+    "enrollment": 20000,
+    "county": "Onondaga",
+    "minutes_url": "https://go.boarddocs.com/ny/scsdny/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600001",
+    "district_name": "Albany City School District",
+    "state": "NY",
+    "enrollment": 9500,
+    "county": "Albany",
+    "minutes_url": "https://go.boarddocs.com/ny/albany/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600058",
+    "district_name": "New Rochelle City School District",
+    "state": "NY",
+    "enrollment": 11000,
+    "county": "Westchester",
+    "minutes_url": "https://go.boarddocs.com/ny/nred/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600060",
+    "district_name": "Beacon City School District",
+    "state": "NY",
+    "enrollment": 3200,
+    "county": "Dutchess",
+    "minutes_url": "https://go.boarddocs.com/ny/beacon/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600077",
+    "district_name": "Great Neck Public Schools",
+    "state": "NY",
+    "enrollment": 6500,
+    "county": "Nassau",
+    "minutes_url": "https://go.boarddocs.com/ny/gnps/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600087",
+    "district_name": "Nanuet Union Free School District",
+    "state": "NY",
+    "enrollment": 2200,
+    "county": "Rockland",
+    "minutes_url": "https://go.boarddocs.com/ny/nanuet/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600100",
+    "district_name": "Watertown City School District",
+    "state": "NY",
+    "enrollment": 3800,
+    "county": "Jefferson",
+    "minutes_url": "https://go.boarddocs.com/ny/watertowncsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600105",
+    "district_name": "North Syracuse Central School District",
+    "state": "NY",
+    "enrollment": 9000,
+    "county": "Onondaga",
+    "minutes_url": "https://go.boarddocs.com/ny/nscsdny/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4835160",
+    "district_name": "Austin Independent School District",
+    "state": "TX",
+    "enrollment": 75000,
+    "county": "Travis",
+    "minutes_url": "https://go.boarddocs.com/tx/austinisd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4819380",
+    "district_name": "Dallas Independent School District",
+    "state": "TX",
+    "enrollment": 145000,
+    "county": "Dallas",
+    "minutes_url": "https://go.boarddocs.com/tx/disd/Board.nsf/vpublic",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4824030",
+    "district_name": "Houston Independent School District",
+    "state": "TX",
+    "enrollment": 187000,
+    "county": "Harris",
+    "minutes_url": "https://go.boarddocs.com/tx/hisd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4826820",
+    "district_name": "Keller Independent School District",
+    "state": "TX",
+    "enrollment": 35000,
+    "county": "Tarrant",
+    "minutes_url": "https://go.boarddocs.com/tx/kisd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4838640",
+    "district_name": "Round Rock Independent School District",
+    "state": "TX",
+    "enrollment": 48000,
+    "county": "Williamson",
+    "minutes_url": "https://go.boarddocs.com/tx/rrisd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4833660",
+    "district_name": "Northside Independent School District",
+    "state": "TX",
+    "enrollment": 99000,
+    "county": "Bexar",
+    "minutes_url": "https://go.boarddocs.com/tx/nisd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "4819200",
+    "district_name": "Dallas ISD",
+    "state": "TX",
+    "enrollment": 145000,
+    "county": "Dallas",
+    "minutes_url": "https://www.dallasisd.org/board-of-trustees/board-meetings-agendas/board-meetings",
+    "platform": "html"
+  },
+  {
+    "district_id": "0634320",
+    "district_name": "San Diego Unified School District",
+    "state": "CA",
+    "enrollment": 121000,
+    "county": "San Diego",
+    "minutes_url": "https://go.boarddocs.com/ca/sandi/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0628050",
+    "district_name": "Oakland Unified School District",
+    "state": "CA",
+    "enrollment": 34000,
+    "county": "Alameda",
+    "minutes_url": "https://go.boarddocs.com/ca/ousd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0624930",
+    "district_name": "Long Beach Unified School District",
+    "state": "CA",
+    "enrollment": 72000,
+    "county": "Los Angeles",
+    "minutes_url": "https://go.boarddocs.com/ca/lbusd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0636390",
+    "district_name": "Santa Ana Unified School District",
+    "state": "CA",
+    "enrollment": 44000,
+    "county": "Orange",
+    "minutes_url": "https://go.boarddocs.com/ca/sausd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0635520",
+    "district_name": "San Bernardino City Unified School District",
+    "state": "CA",
+    "enrollment": 47000,
+    "county": "San Bernardino",
+    "minutes_url": "https://go.boarddocs.com/ca/sbcusd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0629070",
+    "district_name": "Palo Alto Unified School District",
+    "state": "CA",
+    "enrollment": 12000,
+    "county": "Santa Clara",
+    "minutes_url": "https://go.boarddocs.com/ca/pausd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0637770",
+    "district_name": "Santa Clara Unified School District",
+    "state": "CA",
+    "enrollment": 15000,
+    "county": "Santa Clara",
+    "minutes_url": "https://go.boarddocs.com/ca/santaclarausd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0600090",
+    "district_name": "Chula Vista Elementary School District",
+    "state": "CA",
+    "enrollment": 28000,
+    "county": "San Diego",
+    "minutes_url": "https://go.boarddocs.com/ca/cvesd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0641610",
+    "district_name": "Vista Unified School District",
+    "state": "CA",
+    "enrollment": 22000,
+    "county": "San Diego",
+    "minutes_url": "https://go.boarddocs.com/ca/vusdca/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0600088",
+    "district_name": "Santa Barbara Unified School District",
+    "state": "CA",
+    "enrollment": 15000,
+    "county": "Santa Barbara",
+    "minutes_url": "https://go.boarddocs.com/ca/sbunified/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200870",
+    "district_name": "School District of Palm Beach County",
+    "state": "FL",
+    "enrollment": 197000,
+    "county": "Palm Beach",
+    "minutes_url": "https://go.boarddocs.com/fl/palmbeach/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200180",
+    "district_name": "Brevard County School District",
+    "state": "FL",
+    "enrollment": 73000,
+    "county": "Brevard",
+    "minutes_url": "https://go.boarddocs.com/fl/brevco/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200390",
+    "district_name": "Hillsborough County Public Schools",
+    "state": "FL",
+    "enrollment": 219000,
+    "county": "Hillsborough",
+    "minutes_url": "https://go.boarddocs.com/fl/sdhc/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200690",
+    "district_name": "Osceola County School District",
+    "state": "FL",
+    "enrollment": 72000,
+    "county": "Osceola",
+    "minutes_url": "https://go.boarddocs.com/fl/osceola/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200420",
+    "district_name": "Indian River County School District",
+    "state": "FL",
+    "enrollment": 17500,
+    "county": "Indian River",
+    "minutes_url": "https://go.boarddocs.com/fl/ircs/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200510",
+    "district_name": "Lee County School District",
+    "state": "FL",
+    "enrollment": 96000,
+    "county": "Lee",
+    "minutes_url": "https://go.boarddocs.com/fl/lee/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200540",
+    "district_name": "Martin County School District",
+    "state": "FL",
+    "enrollment": 18000,
+    "county": "Martin",
+    "minutes_url": "https://go.boarddocs.com/fl/martin/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200660",
+    "district_name": "Okaloosa County School District",
+    "state": "FL",
+    "enrollment": 32000,
+    "county": "Okaloosa",
+    "minutes_url": "https://go.boarddocs.com/fl/okaloosa/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200680",
+    "district_name": "Orange County Public Schools",
+    "state": "FL",
+    "enrollment": 206000,
+    "county": "Orange",
+    "minutes_url": "https://go.boarddocs.com/fla/orcpsfl/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200270",
+    "district_name": "Miami-Dade County Public Schools",
+    "state": "FL",
+    "enrollment": 334000,
+    "county": "Miami-Dade",
+    "minutes_url": "https://www3.dadeschools.net/SchoolBoard/archives",
+    "platform": "html"
+  },
+  {
+    "district_id": "5100480",
+    "district_name": "Fairfax County Public Schools",
+    "state": "VA",
+    "enrollment": 181000,
+    "county": "Fairfax",
+    "minutes_url": "https://go.boarddocs.com/vsba/fairfax/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5100630",
+    "district_name": "Loudoun County Public Schools",
+    "state": "VA",
+    "enrollment": 82000,
+    "county": "Loudoun",
+    "minutes_url": "https://go.boarddocs.com/vsba/loudoun/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5100060",
+    "district_name": "Arlington Public Schools",
+    "state": "VA",
+    "enrollment": 27000,
+    "county": "Arlington",
+    "minutes_url": "https://go.boarddocs.com/vsba/arlington/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5100930",
+    "district_name": "Richmond City Public Schools",
+    "state": "VA",
+    "enrollment": 23000,
+    "county": "Richmond City",
+    "minutes_url": "https://go.boarddocs.com/vsba/richmond/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5101020",
+    "district_name": "Shenandoah County Public Schools",
+    "state": "VA",
+    "enrollment": 6000,
+    "county": "Shenandoah",
+    "minutes_url": "https://go.boarddocs.com/vsba/shenandoah/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5100960",
+    "district_name": "Rockingham County Public Schools",
+    "state": "VA",
+    "enrollment": 12000,
+    "county": "Rockingham",
+    "minutes_url": "https://go.boarddocs.com/va/rockingham/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5100390",
+    "district_name": "Henrico County Public Schools",
+    "state": "VA",
+    "enrollment": 51000,
+    "county": "Henrico",
+    "minutes_url": "https://go.boarddocs.com/vsba/hcpsva/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "5100360",
+    "district_name": "Spotsylvania County Public Schools",
+    "state": "VA",
+    "enrollment": 24000,
+    "county": "Spotsylvania",
+    "minutes_url": "https://go.boarddocs.com/vsba/scpsva/Board.nsf/vpublic",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3904378",
+    "district_name": "Cincinnati Public Schools",
+    "state": "OH",
+    "enrollment": 36000,
+    "county": "Hamilton",
+    "minutes_url": "https://go.boarddocs.com/oh/cps/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3904380",
+    "district_name": "Cleveland Metropolitan School District",
+    "state": "OH",
+    "enrollment": 37000,
+    "county": "Cuyahoga",
+    "minutes_url": "https://go.boarddocs.com/oh/cmsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3904381",
+    "district_name": "Columbus City Schools",
+    "state": "OH",
+    "enrollment": 47000,
+    "county": "Franklin",
+    "minutes_url": "https://go.boarddocs.com/oh/columbus/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3900058",
+    "district_name": "Akron Public Schools",
+    "state": "OH",
+    "enrollment": 21000,
+    "county": "Summit",
+    "minutes_url": "https://go.boarddocs.com/oh/akron/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3904388",
+    "district_name": "Toledo Public Schools",
+    "state": "OH",
+    "enrollment": 23000,
+    "county": "Lucas",
+    "minutes_url": "https://go.boarddocs.com/oh/tps/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3900110",
+    "district_name": "Youngstown City School District",
+    "state": "OH",
+    "enrollment": 5000,
+    "county": "Mahoning",
+    "minutes_url": "https://go.boarddocs.com/oh/young/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3900120",
+    "district_name": "Milford Exempted Village School District",
+    "state": "OH",
+    "enrollment": 6800,
+    "county": "Clermont",
+    "minutes_url": "https://go.boarddocs.com/oh/milford/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3900130",
+    "district_name": "Strongsville City School District",
+    "state": "OH",
+    "enrollment": 7200,
+    "county": "Cuyahoga",
+    "minutes_url": "https://go.boarddocs.com/oh/strongoh/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3900140",
+    "district_name": "South-Central Local School District",
+    "state": "OH",
+    "enrollment": 1200,
+    "county": "Huron",
+    "minutes_url": "https://go.boarddocs.com/oh/sclsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0805190",
+    "district_name": "Denver Public Schools",
+    "state": "CO",
+    "enrollment": 90000,
+    "county": "Denver",
+    "minutes_url": "https://go.boarddocs.com/co/dpsk12/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0805400",
+    "district_name": "Jefferson County Public Schools",
+    "state": "CO",
+    "enrollment": 86000,
+    "county": "Jefferson",
+    "minutes_url": "https://go.boarddocs.com/co/jeffco/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0800880",
+    "district_name": "Aurora Public Schools",
+    "state": "CO",
+    "enrollment": 38000,
+    "county": "Arapahoe",
+    "minutes_url": "https://go.boarddocs.com/co/aurora/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0801230",
+    "district_name": "Boulder Valley School District",
+    "state": "CO",
+    "enrollment": 30000,
+    "county": "Boulder",
+    "minutes_url": "https://go.boarddocs.com/co/bvsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0806570",
+    "district_name": "Poudre School District",
+    "state": "CO",
+    "enrollment": 32000,
+    "county": "Larimer",
+    "minutes_url": "https://go.boarddocs.com/co/psd70/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0800900",
+    "district_name": "Adams County School District 14",
+    "state": "CO",
+    "enrollment": 7500,
+    "county": "Adams",
+    "minutes_url": "https://go.boarddocs.com/co/adams14/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0800950",
+    "district_name": "Montrose County School District",
+    "state": "CO",
+    "enrollment": 6200,
+    "county": "Montrose",
+    "minutes_url": "https://go.boarddocs.com/co/montrose/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0800960",
+    "district_name": "Cherry Creek School District",
+    "state": "CO",
+    "enrollment": 54000,
+    "county": "Arapahoe",
+    "minutes_url": "https://go.boarddocs.com/co/chcr/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0800970",
+    "district_name": "Weld County School District 6",
+    "state": "CO",
+    "enrollment": 23000,
+    "county": "Weld",
+    "minutes_url": "https://go.boarddocs.com/co/wcsd6/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0800980",
+    "district_name": "Douglas County School District",
+    "state": "CO",
+    "enrollment": 67000,
+    "county": "Douglas",
+    "minutes_url": "https://go.boarddocs.com/co/dsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0601920",
+    "district_name": "Bakersfield City School District",
+    "state": "CA",
+    "enrollment": 32000,
+    "county": "Kern",
+    "minutes_url": "https://go.boarddocs.com/ca/bcsdca/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0624210",
+    "district_name": "La Fayette School District",
+    "state": "CA",
+    "enrollment": 3400,
+    "county": "Contra Costa",
+    "minutes_url": "https://go.boarddocs.com/ca/lafsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600120",
+    "district_name": "Levittown Union Free School District",
+    "state": "NY",
+    "enrollment": 7200,
+    "county": "Nassau",
+    "minutes_url": "https://go.boarddocs.com/ny/lufsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600085",
+    "district_name": "Yorktown Central School District",
+    "state": "NY",
+    "enrollment": 3400,
+    "county": "Westchester",
+    "minutes_url": "https://go.boarddocs.com/ny/yorktown/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "3600090",
+    "district_name": "Rye City School District",
+    "state": "NY",
+    "enrollment": 3100,
+    "county": "Westchester",
+    "minutes_url": "https://go.boarddocs.com/ny/ryecsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "1200665",
+    "district_name": "Walton County School District",
+    "state": "FL",
+    "enrollment": 11000,
+    "county": "Walton",
+    "minutes_url": "https://go.boarddocs.com/fl/waltonsd/Board.nsf/Public",
+    "platform": "boarddocs"
+  },
+  {
+    "district_id": "0600095",
+    "district_name": "Sonoma County Office of Education",
+    "state": "CA",
+    "enrollment": 68000,
+    "county": "Sonoma",
+    "minutes_url": "https://go.boarddocs.com/ca/scoe/Board.nsf/Public",
+    "platform": "boarddocs"
+  }
+]

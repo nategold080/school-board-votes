@@ -123,11 +123,11 @@ The `HybridExtractor` uses confidence scores to decide when LLM fallback is need
 ### Scale
 | Metric | Count |
 |--------|-------|
-| Districts | 51 |
+| Districts | 71 |
 | States | 7 (NY, TX, CA, FL, VA, OH, CO) |
-| Meetings | 261 |
-| Agenda items | 3,685 |
-| Votes extracted | 727 |
+| Meetings | 355 |
+| Agenda items | 4,522 |
+| Votes extracted | 883 |
 | LLM API calls | 0 |
 | API cost | $0.00 |
 | Extraction time | <1 second |
@@ -135,21 +135,22 @@ The `HybridExtractor` uses confidence scores to decide when LLM fallback is need
 ### Category Distribution
 | Category | Votes | % of Total |
 |----------|-------|-----------|
-| Consent Agenda | 330 | 45.4% |
-| Other | 261 | 35.9% |
-| Budget/Finance | 37 | 5.1% |
-| Curriculum | 32 | 4.4% |
-| Policy | 28 | 3.9% |
-| Personnel | 27 | 3.7% |
+| Consent Agenda | 446 | 50.5% |
+| Other | 287 | 32.5% |
+| Budget/Finance | 40 | 4.5% |
+| Curriculum | 39 | 4.4% |
+| Policy | 32 | 3.6% |
+| Personnel | 27 | 3.1% |
 
 ### State Coverage
 | State | Districts | Votes |
 |-------|-----------|-------|
-| NY | 9 | 225 |
-| OH | 6 | 153 |
-| CA | 9 | 131 |
-| FL | 8 | 120 |
+| NY | 12 | 307 |
+| CA | 12 | 162 |
+| OH | 6 | 154 |
+| FL | 9 | 132 |
 | VA | 8 | 74 |
+| CO | 5 | 30 |
 | TX | 4 | 24 |
 
 ### Key Finding

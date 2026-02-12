@@ -7,10 +7,10 @@ A structured database of school board voting records — the first of its kind. 
 School board votes are public record, but they exist as unstructured text scattered across thousands of district websites. No one has collected this data at scale before. This project changes that.
 
 **Current scope:**
-- **51 districts** across 7 states (NY, TX, CA, FL, VA, OH, CO)
-- **261 meetings** analyzed
-- **3,685 agenda items** parsed
-- **727 votes** extracted and categorized
+- **71 districts** across 7 states (NY, TX, CA, FL, VA, OH, CO)
+- **355 meetings** analyzed
+- **4,522 agenda items** parsed
+- **883 votes** extracted and categorized
 - **$0.00** in API costs for extraction
 
 ## Architecture
@@ -135,10 +135,10 @@ python3 scripts/run_analytics.py
 ## Database Schema
 
 ```sql
-districts         -- 51 districts, NCES IDs, enrollment, platform
-meetings          -- 261 meetings, dates, attendance, raw text
-agenda_items      -- 3,685 items, categorized (13 policy categories)
-votes             -- 727 formal votes, results, counts, confidence
+districts         -- 71 districts, NCES IDs, enrollment, platform
+meetings          -- 355 meetings, dates, attendance, raw text
+agenda_items      -- 4,522 items, categorized (13 policy categories)
+votes             -- 883 formal votes, results, counts, confidence
 individual_votes  -- Per-member voting records (from roll calls)
 board_members     -- Board member names, first/last seen dates
 ```
@@ -153,7 +153,7 @@ BoardDocs is a JavaScript SPA that loads data via AJAX. The meeting list is acce
 
 ### Why a rule engine instead of pure LLM?
 Three reasons:
-1. **Cost**: Rule engine processes 261 meetings in <1 second for $0.00. LLM would cost ~$5+ and take minutes.
+1. **Cost**: Rule engine processes 355 meetings in <1 second for $0.00. LLM would cost ~$5+ and take minutes.
 2. **Scalability**: Adding a new district costs nothing if it uses BoardDocs (same patterns apply).
 3. **Engineering depth**: Pattern matching, confidence scoring, and selective LLM fallback demonstrate systems thinking — not just prompt engineering.
 

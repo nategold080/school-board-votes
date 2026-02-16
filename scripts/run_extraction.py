@@ -78,9 +78,11 @@ def save_meeting_to_db(db_ops: DatabaseOperations, district_id: str,
         extraction_confidence=meeting.extraction_confidence,
     )
 
-    # Update board members
+    # Update board members (with roles if available)
+    roles = getattr(meeting, 'member_roles', {})
     for member in meeting.members_present:
-        db_ops.upsert_board_member(district_id, member, seen_date=meeting_date)
+        role = roles.get(member)
+        db_ops.upsert_board_member(district_id, member, role=role, seen_date=meeting_date)
     for member in meeting.members_absent:
         db_ops.upsert_board_member(district_id, member, seen_date=meeting_date)
 
@@ -100,11 +102,13 @@ def save_meeting_to_db(db_ops: DatabaseOperations, district_id: str,
             vote = db_ops.add_vote(
                 item_id=db_item.item_id,
                 motion_text=item.motion_text,
+                motion_maker=item.motion_maker or None,
+                motion_seconder=item.motion_seconder or None,
                 vote_type=item.vote_type,
                 result=item.result,
                 votes_for=item.votes_for,
                 votes_against=item.votes_against,
-                votes_abstain=getattr(item, 'votes_abstain', None),
+                votes_abstain=item.votes_abstain,
                 is_unanimous=item.is_unanimous,
                 confidence=item.confidence,
             )

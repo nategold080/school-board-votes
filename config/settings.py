@@ -47,6 +47,8 @@ ITEM_CATEGORIES = [
     "safety_security",
     "dei_equity",
     "special_education",
+    "procedural",
+    "admin_operations",
     "other",
 ]
 

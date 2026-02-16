@@ -1,0 +1,740 @@
+{
+  "completed": {
+    "3620580": {
+      "name": "Buffalo City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:10:11.295402"
+    },
+    "3623580": {
+      "name": "Rochester City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:11:43.989511"
+    },
+    "3627810": {
+      "name": "Syracuse City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:12:50.077267"
+    },
+    "3600001": {
+      "name": "Albany City School District",
+      "meetings": 6,
+      "timestamp": "2026-02-12T01:13:39.565211"
+    },
+    "3600058": {
+      "name": "New Rochelle City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:15:17.622197"
+    },
+    "3600060": {
+      "name": "Beacon City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:17:19.744402"
+    },
+    "3600077": {
+      "name": "Great Neck Public Schools",
+      "meetings": 11,
+      "timestamp": "2026-02-12T01:19:52.148475"
+    },
+    "3600087": {
+      "name": "Nanuet Union Free School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:20:55.614265"
+    },
+    "3600100": {
+      "name": "Watertown City School District",
+      "meetings": 6,
+      "timestamp": "2026-02-12T01:24:29.207081"
+    },
+    "3600105": {
+      "name": "North Syracuse Central School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:25:46.598378"
+    },
+    "4835160": {
+      "name": "Austin Independent School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:27:02.205202"
+    },
+    "4819380": {
+      "name": "Dallas Independent School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:28:35.813094"
+    },
+    "4824030": {
+      "name": "Houston Independent School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:30:26.880267"
+    },
+    "4826820": {
+      "name": "Keller Independent School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:31:34.442148"
+    },
+    "4838640": {
+      "name": "Round Rock Independent School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:32:41.546118"
+    },
+    "4833660": {
+      "name": "Northside Independent School District",
+      "meetings": 10,
+      "timestamp": "2026-02-12T01:39:05.221229"
+    },
+    "0634320": {
+      "name": "San Diego Unified School District",
+      "meetings": 6,
+      "timestamp": "2026-02-12T01:39:51.425383"
+    },
+    "0628050": {
+      "name": "Oakland Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:40:55.471912"
+    },
+    "0624930": {
+      "name": "Long Beach Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:42:11.150355"
+    },
+    "0636390": {
+      "name": "Santa Ana Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:43:21.246044"
+    },
+    "0635520": {
+      "name": "San Bernardino City Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:45:16.060435"
+    },
+    "0629070": {
+      "name": "Palo Alto Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:47:28.557496"
+    },
+    "0637770": {
+      "name": "Santa Clara Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:48:39.864189"
+    },
+    "0600090": {
+      "name": "Chula Vista Elementary School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:49:56.760223"
+    },
+    "0641610": {
+      "name": "Vista Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:51:38.636652"
+    },
+    "0600088": {
+      "name": "Santa Barbara Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:53:23.246865"
+    },
+    "1200870": {
+      "name": "School District of Palm Beach County",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:54:40.872468"
+    },
+    "1200390": {
+      "name": "Hillsborough County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:55:54.182852"
+    },
+    "1200690": {
+      "name": "Osceola County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:57:46.284184"
+    },
+    "1200420": {
+      "name": "Indian River County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T01:59:40.994123"
+    },
+    "1200510": {
+      "name": "Lee County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:00:54.705326"
+    },
+    "1200540": {
+      "name": "Martin County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:02:21.035299"
+    },
+    "1200660": {
+      "name": "Okaloosa County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:04:17.619371"
+    },
+    "1200680": {
+      "name": "Orange County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:06:16.511368"
+    },
+    "5100480": {
+      "name": "Fairfax County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:13:35.962750"
+    },
+    "5100630": {
+      "name": "Loudoun County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:15:33.627630"
+    },
+    "5100060": {
+      "name": "Arlington Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:17:24.685031"
+    },
+    "5100930": {
+      "name": "Richmond City Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:19:11.918532"
+    },
+    "5101020": {
+      "name": "Shenandoah County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:21:02.883358"
+    },
+    "5100960": {
+      "name": "Rockingham County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:22:43.331913"
+    },
+    "5100390": {
+      "name": "Henrico County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:23:59.409669"
+    },
+    "5100360": {
+      "name": "Spotsylvania County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:25:20.851321"
+    },
+    "3904378": {
+      "name": "Cincinnati Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:26:26.097271"
+    },
+    "3904380": {
+      "name": "Cleveland Metropolitan School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:27:29.794100"
+    },
+    "3904381": {
+      "name": "Columbus City Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:28:35.352969"
+    },
+    "3900058": {
+      "name": "Akron Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:30:46.799227"
+    },
+    "3904388": {
+      "name": "Toledo Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:32:12.165262"
+    },
+    "3900110": {
+      "name": "Youngstown City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:34:06.313199"
+    },
+    "3900120": {
+      "name": "Milford Exempted Village School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:36:09.181948"
+    },
+    "3900130": {
+      "name": "Strongsville City School District",
+      "meetings": 6,
+      "timestamp": "2026-02-12T02:37:07.103068"
+    },
+    "3900140": {
+      "name": "South-Central Local School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:38:50.575232"
+    },
+    "0805190": {
+      "name": "Denver Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:39:59.451145"
+    },
+    "0805400": {
+      "name": "Jefferson County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:41:11.110753"
+    },
+    "0800880": {
+      "name": "Aurora Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:42:17.585872"
+    },
+    "0801230": {
+      "name": "Boulder Valley School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:43:30.659806"
+    },
+    "0806570": {
+      "name": "Poudre School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:45:35.230136"
+    },
+    "0800900": {
+      "name": "Adams County School District 14",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:47:01.834660"
+    },
+    "0800950": {
+      "name": "Montrose County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:48:08.802660"
+    },
+    "0800960": {
+      "name": "Cherry Creek School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:49:13.896847"
+    },
+    "0800970": {
+      "name": "Weld County School District 6",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:50:19.414109"
+    },
+    "0800980": {
+      "name": "Douglas County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:52:10.899931"
+    },
+    "0601920": {
+      "name": "Bakersfield City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:53:15.178124"
+    },
+    "0624210": {
+      "name": "La Fayette School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:54:47.211487"
+    },
+    "3600120": {
+      "name": "Levittown Union Free School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:56:07.796684"
+    },
+    "3600085": {
+      "name": "Yorktown Central School District",
+      "meetings": 3,
+      "timestamp": "2026-02-12T02:56:26.704124"
+    },
+    "3600090": {
+      "name": "Rye City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T02:58:18.395441"
+    },
+    "1200665": {
+      "name": "Walton County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:00:09.543392"
+    },
+    "0600095": {
+      "name": "Sonoma County Office of Education",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:01:39.488766"
+    },
+    "4290001": {
+      "name": "Hatboro-Horsham School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:02:43.395283"
+    },
+    "0990001": {
+      "name": "New Haven Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:04:32.990560"
+    },
+    "0990002": {
+      "name": "Greenwich Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:06:31.761276"
+    },
+    "1790001": {
+      "name": "School District U-46 (Elgin)",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:07:42.057887"
+    },
+    "2690001": {
+      "name": "Ann Arbor Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:08:46.900699"
+    },
+    "2690002": {
+      "name": "Birmingham Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:09:48.358934"
+    },
+    "5590001": {
+      "name": "Madison Metropolitan School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:11:37.893255"
+    },
+    "1390001": {
+      "name": "Gwinnett County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:12:41.878494"
+    },
+    "3790001": {
+      "name": "New Hanover County Schools",
+      "meetings": 5,
+      "timestamp": "2026-02-12T03:13:08.540412"
+    },
+    "0490001": {
+      "name": "Tempe Union HSD",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:14:15.209735"
+    },
+    "0490002": {
+      "name": "Deer Valley Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:16:13.898002"
+    },
+    "1690001": {
+      "name": "Idaho Falls School District 91",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:18:01.203000"
+    },
+    "4290002": {
+      "name": "North Allegheny School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:19:06.218389"
+    },
+    "4290003": {
+      "name": "Radnor Township School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:20:08.637069"
+    },
+    "4290004": {
+      "name": "Spring-Ford Area School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:21:11.197245"
+    },
+    "4290005": {
+      "name": "Upper Dublin School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:22:13.406696"
+    },
+    "5390002": {
+      "name": "Lake Washington School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:24:04.585844"
+    },
+    "5390003": {
+      "name": "Northshore School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:25:53.117791"
+    },
+    "5390004": {
+      "name": "Marysville School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:27:31.395578"
+    },
+    "5390005": {
+      "name": "Bellevue School District",
+      "meetings": 11,
+      "timestamp": "2026-02-12T03:28:29.965219"
+    },
+    "5390006": {
+      "name": "Bainbridge Island School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:30:08.058793"
+    },
+    "1790002": {
+      "name": "Libertyville-Vernon Hills Area HSD 128",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:31:58.848776"
+    },
+    "1790003": {
+      "name": "Arlington Heights School District 25",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:33:00.821907"
+    },
+    "1790004": {
+      "name": "Schaumburg CCSD 54",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:34:48.311575"
+    },
+    "1790005": {
+      "name": "Consolidated HSD 230",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:36:35.285414"
+    },
+    "3790002": {
+      "name": "Union County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:37:43.110503"
+    },
+    "3790003": {
+      "name": "Cabarrus County Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:38:46.752144"
+    },
+    "5590002": {
+      "name": "Eau Claire Area School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:39:52.557731"
+    },
+    "0990003": {
+      "name": "Wilton Public Schools",
+      "meetings": 9,
+      "timestamp": "2026-02-12T03:41:04.496620"
+    },
+    "3905001": {
+      "name": "Westlake City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:42:08.828376"
+    },
+    "3905002": {
+      "name": "Shaker Heights City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:43:11.332388"
+    },
+    "3905003": {
+      "name": "Olentangy Local School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:44:13.416590"
+    },
+    "5105001": {
+      "name": "Fairfax County Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:46:13.853668"
+    },
+    "4805001": {
+      "name": "Frisco Independent School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:47:56.962718"
+    },
+    "0605005": {
+      "name": "Fresno Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:49:30.804347"
+    },
+    "0605006": {
+      "name": "Torrance Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:51:28.673191"
+    },
+    "0605007": {
+      "name": "Riverside Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:53:22.952436"
+    },
+    "0805001": {
+      "name": "Colorado Springs School District 11",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:54:27.173467"
+    },
+    "0805002": {
+      "name": "Falcon School District 49",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:55:34.812861"
+    },
+    "3605001": {
+      "name": "Mahopac Central School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:56:37.975372"
+    },
+    "3605002": {
+      "name": "Scarsdale Union Free School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T03:58:26.955460"
+    },
+    "3605004": {
+      "name": "Nyack Union Free School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:00:21.406284"
+    },
+    "4290006": {
+      "name": "Lower Merion School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:01:24.037609"
+    },
+    "4290007": {
+      "name": "Cheltenham School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:03:14.132664"
+    },
+    "1790006": {
+      "name": "St. Charles CUSD 303",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:05:14.119852"
+    },
+    "5590003": {
+      "name": "Elmbrook School District",
+      "meetings": 6,
+      "timestamp": "2026-02-12T04:05:48.456010"
+    },
+    "5590004": {
+      "name": "Hamilton School District",
+      "meetings": 11,
+      "timestamp": "2026-02-12T04:06:49.861000"
+    },
+    "5590005": {
+      "name": "School District of Muskego-Norway",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:08:39.021614"
+    },
+    "3790004": {
+      "name": "Onslow County Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:09:45.339922"
+    },
+    "0605013": {
+      "name": "Sequoia Union High School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:11:28.297271"
+    },
+    "0605014": {
+      "name": "Grossmont Union High School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:12:35.060647"
+    },
+    "0605015": {
+      "name": "New Haven Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:14:32.977525"
+    },
+    "0605016": {
+      "name": "Capistrano Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:16:04.329027"
+    },
+    "0605017": {
+      "name": "Anaheim Union High School District",
+      "meetings": 6,
+      "timestamp": "2026-02-12T04:16:57.672484"
+    },
+    "0605018": {
+      "name": "Hacienda La Puente Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:18:11.842701"
+    },
+    "0605019": {
+      "name": "Walnut Valley Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:19:58.807896"
+    },
+    "0605020": {
+      "name": "Glendale Unified School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:21:46.585500"
+    },
+    "3905004": {
+      "name": "Medina City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:22:55.413180"
+    },
+    "3905005": {
+      "name": "Dublin City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:24:42.801914"
+    },
+    "3905006": {
+      "name": "Lancaster City School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:25:44.168407"
+    },
+    "1205003": {
+      "name": "Escambia County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:26:46.948630"
+    },
+    "1205004": {
+      "name": "Nassau County School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:28:05.488187"
+    },
+    "5105002": {
+      "name": "Alexandria City Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:29:55.950169"
+    },
+    "3605009": {
+      "name": "Edgemont Union Free School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:32:08.761419"
+    },
+    "1790008": {
+      "name": "Marquardt School District 15",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:33:58.994620"
+    },
+    "5390007": {
+      "name": "Mercer Island School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:35:22.445286"
+    },
+    "5390008": {
+      "name": "Vashon Island School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:37:04.095707"
+    },
+    "2690003": {
+      "name": "West Bloomfield School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:38:10.288253"
+    },
+    "1890001": {
+      "name": "South Bend Community School Corporation",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:39:25.863703"
+    },
+    "2090001": {
+      "name": "Shawnee Mission School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:40:28.721546"
+    },
+    "2090002": {
+      "name": "Olathe Public Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:41:31.919462"
+    },
+    "1990001": {
+      "name": "Iowa City Community School District",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:43:04.105504"
+    },
+    "1890002": {
+      "name": "Northwest Allen County Schools",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:44:44.844185"
+    },
+    "1890003": {
+      "name": "MSD Pike Township",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:45:50.485138"
+    },
+    "2090003": {
+      "name": "Lawrence USD 497",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:47:39.095530"
+    },
+    "2090004": {
+      "name": "Blue Valley",
+      "meetings": 11,
+      "timestamp": "2026-02-12T04:49:18.531125"
+    },
+    "0690021": {
+      "name": "Santa Clara COE",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:51:22.340202"
+    },
+    "3990007": {
+      "name": "Mason City SD",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:53:05.389679"
+    },
+    "3990008": {
+      "name": "Sycamore CSD",
+      "meetings": 12,
+      "timestamp": "2026-02-12T04:54:07.527731"
+    }
+  },
+  "failed": []
+}

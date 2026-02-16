@@ -132,8 +132,19 @@ class BoardMember(Base):
 
 
 def get_engine(db_path="data/database.sqlite"):
-    """Create and return a database engine."""
-    return create_engine(f"sqlite:///{db_path}", echo=False)
+    """Create and return a database engine with WAL mode for better write performance."""
+    from sqlalchemy import event as sa_event
+
+    engine = create_engine(f"sqlite:///{db_path}", echo=False)
+
+    @sa_event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
+
+    return engine
 
 
 def get_session(db_path="data/database.sqlite"):

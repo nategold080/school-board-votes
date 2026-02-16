@@ -14,11 +14,30 @@ BoardDocs (go.boarddocs.com) is the dominant platform for school board meeting m
 
 **Discovery**: BoardDocs exposes a public SEO endpoint (`BD-GETMeetingsListForSEO`) that returns meeting lists as JSON without authentication. Meeting content, however, requires a JavaScript-rendered browser session.
 
-**Scraping strategy**: Use the SEO endpoint for discovery (fast, no browser needed), then Playwright for content extraction (one browser context shared across all districts). This processes 69 districts in ~40 minutes.
+**Scraping strategy**: Use the SEO endpoint for discovery (fast, no browser needed), then Playwright for content extraction (one browser context shared across all districts). This processes 150 districts in ~4-6 hours.
+
+### The Breakthrough: Minutes Capture
+
+The single biggest technical insight: BoardDocs meetings have **two** document types.
+
+- **Agendas** are pre-meeting documents listing planned items. They rarely contain vote results.
+- **Minutes** are post-meeting approved records. They contain roll-call votes, attendance, motion makers, and individual member votes.
+
+Most prior attempts at scraping BoardDocs only captured agendas. Our scraper detects the "View Minutes" link for each meeting, clicks it, waits for the AJAX content to load, and captures the full minutes text alongside the agenda.
+
+This is what unlocks individual vote records — transforming the system from a catalog of agenda items into a genuine voting database.
+
+**Implementation details:**
+1. After loading a meeting page, the scraper looks for a minutes link: `a:has-text("Minutes"):not(:has-text("Approval"))`
+2. If found, it clicks the link and waits 4 seconds for AJAX responses
+3. It intercepts any `BD-GetMinutes` API calls
+4. The minutes body text is appended to the output file under a `MINUTES TEXT:` marker
+
+About 37% of scraped districts have minutes published on BoardDocs. Each district with minutes yields 5-9 individual vote records per motion, creating the core of the voting record database.
 
 ### The Extraction Problem
 
-The raw data from BoardDocs looks like this:
+Raw BoardDocs data looks like this:
 
 ```
 === 1.OPENING OF MEETING ===
@@ -26,19 +45,33 @@ The raw data from BoardDocs looks like this:
 === 8.CONSENT AGENDA ===
 === 9.PERSONNEL AFFAIRS - PERSONNEL CHANGES ===
 === 17.BUSINESS AFFAIRS - AWARD OF CONTRACT ===
-=== 25.APPROVE CONSENT AGENDA ===
+
+MINUTES TEXT:
+Motion made by Smith, seconded by Jones:
+Roll Call Vote: Aye: Smith, Jones, Williams, Brown, Davis
+               Nay: Taylor
+               Absent: Wilson
+Motion carried 5-1.
 ```
 
-The challenge: determine which items involved formal votes, classify them by policy category, and extract vote details — all without explicit vote records in most cases.
+The extraction challenge is multi-layered:
+1. Identify which items involved formal votes
+2. Classify each by policy category
+3. Extract vote details (result, counts, motion makers)
+4. Parse individual roll-call votes from minutes text
+5. Match minutes vote data to the correct agenda items
+6. Handle 100+ format variations across districts
 
 ### Why Not Just Use an LLM?
 
 The naive approach: send every document to GPT-4 and ask it to extract structured data. This works for small-scale demos but fails as an engineering solution:
 
-1. **Cost**: At ~$0.02/document, processing 200K meetings/year costs $4,000/year with linear scaling.
-2. **Speed**: API calls add seconds per document. Our rule engine processes 355 meetings in <1 second.
+1. **Cost**: At ~$0.02-0.05/document, processing 200K meetings/year costs $4,000-10,000/year with linear scaling. Our rule engine: $0.00.
+2. **Speed**: API calls add seconds per document. Our rule engine processes 1,600+ meetings in under 2 seconds.
 3. **Determinism**: LLMs can hallucinate vote counts or misclassify items. Pattern matching is predictable and testable.
-4. **Technical depth**: "Call API, get JSON" is prompt engineering. Building a system that learns platform conventions and handles edge cases is software engineering.
+4. **Scalability**: Adding a new BoardDocs district costs nothing — the same patterns apply.
+
+An optional LLM fallback exists for genuinely ambiguous cases but has not been needed in production runs.
 
 ### The Hybrid Architecture
 
@@ -53,11 +86,11 @@ The naive approach: send every document to GPT-4 and ask it to extract structure
                                │
                     ┌──────────▼──────────┐
                     │  Section Extraction  │  Split by === headers
-                    └──────────┬──────────┘
+                    └──────────┬──────────┘  (boundary-aware: stops at MINUTES TEXT)
                                │
                     ┌──────────▼──────────┐
-                    │ Category Classifier  │  12 categories, regex scoring
-                    └──────────┬──────────┘
+                    │ Category Classifier  │  15 categories, 150+ regex patterns
+                    └──────────┬──────────┘  prefix stripping, scoring
                                │
                     ┌──────────▼──────────┐
                     │ Vote Likelihood      │  VOTE_LIKELY vs NO_VOTE patterns
@@ -65,8 +98,13 @@ The naive approach: send every document to GPT-4 and ask it to extract structure
                     └──────────┬──────────┘
                                │
                     ┌──────────▼──────────┐
-                    │ Vote Detail          │  Counts, roll calls, motion makers
-                    │ Extraction           │  Individual votes from patterns
+                    │ Minutes Parser       │  Roll calls, motions, attendance
+                    │ (_extract_minutes)   │  Merges with agenda items
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │ Post-Processing      │  Recalculate unanimity from
+                    │ Validation           │  actual individual vote data
                     └──────────┬──────────┘
                                │
               ┌────────────────┼────────────────┐
@@ -82,96 +120,111 @@ The naive approach: send every document to GPT-4 and ask it to extract structure
 
 #### Category Classification
 
-13 policy categories, each with multiple regex patterns:
+15 policy categories, each with multiple regex patterns:
 
 ```python
-"consent_agenda": [r"consent\s+(agenda|calendar|items?)", ...],
-"personnel":      [r"personnel", r"human\s+(capital|resources)", ...],
-"budget_finance":  [r"budget", r"financ(e|ial)", r"award\s+of\s+(contract|purchase)", ...],
+"consent_agenda":        [r"consent\s+(agenda|calendar|items?)", ...]
+"personnel":             [r"personnel", r"human\s+(capital|resources)", ...]
+"budget_finance":        [r"budget", r"financ(e|ial)", r"contract\s+approv", ...]
+"procedural":            [r"approv(e|al)\s+of\s+(the\s+)?(agenda|minutes)", ...]
+"admin_operations":      [r"superintendent.?s?\s+report", r"presentation", ...]
+"curriculum_instruction": [r"curriculum", r"textbook", r"field\s+trip", ...]
 ```
 
-A section is classified by scoring matches across all categories and selecting the highest. This handles variations like "PERSONNEL AFFAIRS - PERSONNEL CHANGES" and "Human Resource Items" both mapping to `personnel`.
+The classifier strips common prefixes ("A.", "B.", "Consent - ") and suffixes ("*(PUBLIC CANNOT...)") before matching, then scores each category and selects the highest. This handles variations like "PERSONNEL AFFAIRS - PERSONNEL CHANGES" and "Human Resource Items" both mapping to `personnel`.
 
-#### Vote Likelihood Assessment
+The "other" category — items that don't match any pattern — has been driven below 20% through iterative pattern expansion. Generic section headers ("ACTION ITEMS", "UNFINISHED BUSINESS") are detected and classified as procedural or admin rather than polluting the "other" bucket.
 
-Two pattern lists determine whether an item likely has a vote:
+#### Minutes Vote Parsing
 
-- **VOTE_LIKELY**: `consent agenda`, `approval of minutes`, `award of contract`, `board policies`, `resolution`, etc.
-- **NO_VOTE**: `call to order`, `pledge of allegiance`, `superintendent's report`, `adjournment`, etc.
+The minutes parser (`_extract_minutes_sections()`) handles two major roll-call formats:
 
-Items matching NO_VOTE patterns are marked `has_vote: false` with high confidence. Items matching VOTE_LIKELY patterns are marked `has_vote: true` with confidence proportional to match count.
+**Format 1 — Individual lines:**
+```
+Mr. Smith - Aye
+Ms. Jones - Aye
+Dr. Brown - Nay
+```
 
-#### Vote Detail Extraction
+**Format 2 — Aggregated lists:**
+```
+Aye: Smith, Jones, Williams, Davis
+Nay: Brown
+Absent: Wilson
+```
 
-When explicit vote language exists in the text, the engine extracts:
-- Vote counts from `N-N` patterns (e.g., "approved 5-2")
-- Individual votes from roll call patterns (e.g., "Mr. Smith - Aye")
-- Motion makers/seconders from "motion by" / "seconded by" patterns
-- Result from "carried", "failed", "tabled" language
+It also extracts motion blocks using patterns like:
+```
+Motion made by Smith, seconded by Jones
+```
 
-### Confidence Scoring
+These are matched to their closest agenda item by position in the text. When minutes data overlaps with agenda-inferred data, the minutes version wins (higher confidence).
+
+### Confidence Scoring and Validation
 
 Every extraction carries a confidence score:
 - **High**: Explicit vote language found (counts, roll call, "carried unanimously")
 - **Medium**: Item type strongly suggests a vote (consent agenda, policy approval)
 - **Low**: Ambiguous — item might or might not have a vote
 
-The `HybridExtractor` uses confidence scores to decide when LLM fallback is needed. In practice, the rule engine handles >95% of items with medium or high confidence.
+A critical post-processing step recalculates `is_unanimous` from actual individual vote data:
+```python
+for item in meeting.agenda_items:
+    if item.individual_votes:
+        no_count = sum(1 for v in item.individual_votes if v["member_vote"] == "no")
+        item.is_unanimous = no_count == 0
+```
+
+This catches edge cases where agenda text says "unanimous" but minutes reveal dissent — a subtle but important data quality issue.
 
 ## Results
 
 ### Scale
+
 | Metric | Count |
 |--------|-------|
-| Districts | 71 |
-| States | 7 (NY, TX, CA, FL, VA, OH, CO) |
-| Meetings | 355 |
-| Agenda items | 4,522 |
-| Votes extracted | 883 |
+| Districts | 150 |
+| States | 20 (NY, TX, CA, FL, VA, OH, CO, WI, NC, GA, MA, IL, PA, WA, AZ, MI, MN, NJ, OR, MD) |
+| Meetings | 1,600+ |
+| Agenda items | 7,000+ |
+| Votes extracted | 3,000+ |
+| Individual vote records | 1,000+ |
+| Board members identified | 200+ |
 | LLM API calls | 0 |
 | API cost | $0.00 |
-| Extraction time | <1 second |
+| Extraction time | <2 seconds for full dataset |
 
-### Category Distribution
-| Category | Votes | % of Total |
-|----------|-------|-----------|
-| Consent Agenda | 446 | 50.5% |
-| Other | 287 | 32.5% |
-| Budget/Finance | 40 | 4.5% |
-| Curriculum | 39 | 4.4% |
-| Policy | 32 | 3.6% |
-| Personnel | 27 | 3.1% |
+### Key Findings
 
-### State Coverage
-| State | Districts | Votes |
-|-------|-----------|-------|
-| NY | 12 | 307 |
-| CA | 12 | 162 |
-| OH | 6 | 154 |
-| FL | 9 | 132 |
-| VA | 8 | 74 |
-| CO | 5 | 30 |
-| TX | 4 | 24 |
+1. **High unanimity rate**: ~95%+ of school board votes are unanimous. This is consistent with governance research — most votes are procedural (consent agendas, minute approvals).
 
-### Key Finding
-98.9% unanimity rate across all extracted votes. This is consistent with research on school board governance: most votes are procedural (consent agendas, minute approvals). The 1.1% of contested votes are where the interesting policy dynamics live.
+2. **Contested votes are rare and revealing**: The ~5% of non-unanimous votes are where policy dynamics become visible. They tend to cluster in specific categories (personnel, budget, policy) rather than being evenly distributed.
+
+3. **Minutes availability varies**: ~37% of BoardDocs districts have minutes published. These districts disproportionately contribute the most valuable data (individual vote records).
+
+4. **Category distribution**: After pattern optimization, the "other" bucket is under 20%. The largest categories are consent agenda (~30%), procedural (~15%), budget/finance (~10%), and personnel (~8%).
 
 ## Technology Stack
 
-- **Python 3.11+**: Core language
+- **Python 3.11+**: Core language with async/await
 - **Playwright**: Headless browser for BoardDocs scraping
-- **SQLAlchemy**: ORM for SQLite database
+- **SQLAlchemy**: ORM for SQLite with WAL mode
 - **Pydantic**: Schema validation for extraction outputs
-- **Streamlit**: Interactive web interface
+- **Streamlit**: Interactive web interface (6 pages)
 - **Plotly**: Data visualization
-- **OpenAI API**: LLM fallback (optional, not used in current run)
+- **BeautifulSoup**: HTML parsing of minutes content
+- **OpenAI API**: Optional LLM fallback (unused in production)
 
-## What I'd Do Differently
+## What I'd Do Next
 
-1. **Template learning**: Instead of static regex patterns, build a system that learns new patterns from LLM-validated examples. Process 5 meetings with LLM, extract the patterns used, add them to the rule engine automatically.
+1. **Template learning**: Instead of static regex patterns, build a system that learns new patterns from LLM-validated examples. Process 5 meetings with LLM, extract the patterns used, add them to the rule engine automatically. This creates a feedback loop that improves coverage without increasing marginal cost.
 
-2. **Full minutes text**: Many districts publish detailed meeting minutes (not just agendas) as PDFs. These contain actual vote counts, roll call records, and motion text. A PDF extraction pipeline would dramatically improve data quality.
+2. **PDF minutes pipeline**: Many non-BoardDocs districts publish detailed meeting minutes as PDFs. These contain the richest vote data. A PDF extraction pipeline (OCR + structured parsing) would significantly expand coverage.
 
-3. **Continuous scraping**: Build a scheduled job that re-scrapes districts weekly and processes only new meetings. The infrastructure supports this — just needs a "last scraped" timestamp and delta processing.
+3. **Continuous scraping**: A scheduled job that re-scrapes districts weekly and processes only new meetings. The infrastructure supports this — just needs a "last scraped" timestamp and delta processing.
 
 4. **District fingerprinting**: Automatically detect which structural patterns a district uses and select the optimal extraction strategy. Some districts label sections differently, use sub-items, or include inline vote results.
+
+5. **API layer**: REST API for programmatic access to the vote database. Enable researchers, journalists, and civic tech organizations to query the data directly.
+
+6. **Civic engagement**: Automated alerts when specific policy categories come up for a vote, legislator scorecards based on voting history, and cross-district policy comparison tools.

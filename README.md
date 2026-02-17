@@ -19,9 +19,9 @@ The data is trapped in JavaScript-rendered portals, scattered across thousands o
 | Meetings analyzed | 1,634 |
 | Agenda items | 20,859 |
 | Votes extracted | 5,923 |
-| Individual roll-call records | 11,796 |
-| Contested (non-unanimous) votes | 273 |
-| Board members identified | 662 |
+| Individual roll-call records | 11,746 |
+| Contested (non-unanimous) votes | 240 |
+| Board members identified | 574 |
 | LLM API cost | $0.00 |
 
 ## Architecture
@@ -141,8 +141,8 @@ districts         -- 150 districts, NCES IDs, state, enrollment, platform
 meetings          -- 1,634 meetings, dates, attendance, raw text
 agenda_items      -- 20,859 items, categorized into 15 policy categories
 votes             -- 5,923 formal votes, results, counts, confidence
-individual_votes  -- 11,796 per-member roll-call records
-board_members     -- 662 board member names, roles, first/last seen dates
+individual_votes  -- 11,746 per-member roll-call records
+board_members     -- 574 board member names, roles, first/last seen dates
 ```
 
 ## Setup
@@ -188,7 +188,7 @@ Six interactive pages:
 ### Known Limitations
 - **Minutes availability**: ~52% of districts have minutes published on BoardDocs (others are agenda-only)
 - **Format variations**: Some districts use non-standard vote formatting that current patterns don't capture
-- **"Other" category**: 19.4% of items remain uncategorized (mostly "Motion by [Name]" items from minutes with uninformative titles)
+- **"Other" category**: 18.2% of items remain uncategorized (mostly "Motion by [Name]" items from minutes with uninformative titles)
 - **Snapshot data**: Point-in-time scrape, not continuously updated (though the infrastructure supports scheduling)
 
 ## Technology Stack

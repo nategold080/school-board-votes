@@ -130,7 +130,7 @@ def main():
     st.sidebar.divider()
     page = st.sidebar.radio(
         "Navigate",
-        ["Dashboard", "Contested Votes", "District Browser",
+        ["Contested Votes", "Dashboard", "District Browser",
          "Vote Search", "Member Profiles", "Trends"],
         index=0,
     )
@@ -162,6 +162,18 @@ def render_dashboard(db_ops, analytics, session):
     )
 
     stats = db_ops.get_vote_statistics()
+    states = analytics.votes_by_state()
+    state_count = len(set(s["state"] for s in states)) if states else 0
+
+    # Summary banner
+    st.markdown(
+        f'<div class="highlight-box">'
+        f'<h2>{stats["total_districts"]:,} districts | {state_count} states | '
+        f'{stats["total_votes"]:,} votes tracked | {stats["contested_votes"]:,} contested votes</h2>'
+        f'<p>Structured voting data extracted from public BoardDocs minutes using a zero-cost rule engine</p>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     # Hero metrics row
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -179,8 +191,7 @@ def render_dashboard(db_ops, analytics, session):
 
     st.divider()
 
-    # Data coverage summary
-    states = analytics.votes_by_state()
+    # Data coverage summary (states already fetched above for banner)
     if states:
         state_list = sorted(set(s["state"] for s in states))
         st.subheader(f"Data Coverage: {len(state_list)} States")
@@ -234,6 +245,51 @@ def render_dashboard(db_ops, analytics, session):
     else:
         st.info("Individual vote records are needed to compute dissent rates.")
 
+    # Data Quality section
+    st.divider()
+    st.subheader("Data Quality")
+    confidence_counts = (
+        session.query(Vote.confidence, func.count(Vote.vote_id))
+        .group_by(Vote.confidence)
+        .all()
+    )
+    if confidence_counts:
+        conf_data = {r[0] or "unknown": r[1] for r in confidence_counts}
+        conf_df = pd.DataFrame([
+            {"Confidence": level.title(), "Votes": conf_data.get(level, 0)}
+            for level in ["high", "medium", "low"]
+            if conf_data.get(level, 0) > 0
+        ])
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            for _, row in conf_df.iterrows():
+                total = sum(conf_data.values())
+                pct = row["Votes"] / total * 100 if total else 0
+                st.metric(f"{row['Confidence']} Confidence", f"{row['Votes']:,} ({pct:.1f}%)")
+        with col2:
+            import plotly.graph_objects as go
+            colors = {"High": "#2ecc71", "Medium": "#f39c12", "Low": "#e74c3c"}
+            fig = go.Figure(go.Bar(
+                x=conf_df["Confidence"],
+                y=conf_df["Votes"],
+                marker_color=[colors.get(c, "#999") for c in conf_df["Confidence"]],
+                text=conf_df["Votes"],
+                textposition="outside",
+            ))
+            fig.update_layout(
+                title="Vote Confidence Distribution",
+                xaxis_title="Confidence Level",
+                yaxis_title="Number of Votes",
+                height=350,
+                template="plotly_white",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            "**High** confidence votes have explicit roll-call language or structured BoardDocs vote blocks. "
+            "**Medium** confidence votes match multiple vote-indicating patterns. "
+            "**Low** confidence votes are inferred from agenda item type with a single pattern match."
+        )
+
 
 def render_contested_votes(db_ops, session):
     """Render contested (non-unanimous) votes - the highlight page."""
@@ -264,18 +320,31 @@ def render_contested_votes(db_ops, session):
     st.divider()
 
     # Filters
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         state_filter = st.text_input("Filter by State", placeholder="e.g., TX, FL, NY", key="cv_state")
     with col2:
         cat_val = category_selectbox("Filter by Category", key="cv_cat")
     with col3:
+        confidence_filter = st.selectbox(
+            "Confidence Level",
+            ["All", "High Only", "High + Medium"],
+            index=0,
+            key="cv_conf",
+        )
+    with col4:
         sort_by = st.selectbox("Sort by", ["Most Recent", "Closest Margin"])
 
     results = db_ops.get_contested_votes(
         state=state_filter.upper().strip() if state_filter else None,
         category=cat_val,
     )
+
+    # Apply confidence filter
+    if confidence_filter == "High Only":
+        results = [(v, i, m, d) for v, i, m, d in results if v.confidence == "high"]
+    elif confidence_filter == "High + Medium":
+        results = [(v, i, m, d) for v, i, m, d in results if v.confidence in ("high", "medium")]
 
     # Sort
     if sort_by == "Closest Margin":
@@ -457,11 +526,15 @@ def render_vote_search(db_ops):
 
         for vote, item, meeting, district in results:
             cat_label = format_category(item.item_category)
+            conf_badge = {"high": "[HIGH]", "medium": "[MED]", "low": "[LOW]"}.get(
+                vote.confidence or "low", "[?]"
+            )
             with st.expander(
                 f"{district.district_name} ({district.state}) | {meeting.meeting_date} | "
-                f"{item.item_title}"
+                f"{item.item_title} {conf_badge}"
             ):
                 st.write(f"**Category:** {cat_label}")
+                st.write(f"**Confidence:** {(vote.confidence or 'unknown').title()}")
                 st.write(f"**Motion:** {vote.motion_text or 'N/A'}")
 
                 result_color = "green" if vote.result == "passed" else "red"

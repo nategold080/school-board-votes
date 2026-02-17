@@ -5,7 +5,7 @@ import io
 import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from .base_scraper import BaseScraper, MeetingMinutes

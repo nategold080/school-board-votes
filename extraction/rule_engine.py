@@ -34,6 +34,7 @@ CATEGORY_RULES = {
         r"^consent$",
         r"consent\s+general",
         r"consent\s+vote",
+        r"items?\s+of\s+consent",
     ],
     "personnel": [
         r"personnel",
@@ -68,6 +69,12 @@ CATEGORY_RULES = {
         r"insurance",
         r"fee\s+(schedule|increase|waiver)",
         r"consideration\s+of\s+accounts?",
+        r"referendum",
+        r"paid\s+bills",
+        r"bids?\s*,?\s*contracts?\s*,?\s*agreements?",
+        r"(?:action\s+(?:only\s+)?[-–]?\s*)?(?:bids?|agreements?)\b",
+        r"sponsor\s+event",
+        r"authorize\s+.*(?:contract|agreement|payment)",
     ],
     "curriculum_instruction": [
         r"curriculum",
@@ -123,19 +130,29 @@ CATEGORY_RULES = {
         r"extracurricular",
         r"athletics",
         r"student\s+code",
-        r"graduation",
+        r"graduation|commencement",
         r"school\s+calendar",
         r"student\s+handbook",
         r"dress\s+code",
         r"transportation",
         r"student\s+services?",
+        r"field\s+trip",
+        r"coach(es|ing)?\b",
+        r"basketball|football|soccer|baseball|volleyball|tennis|swim|track|cheer|wrestling|sport",
+        r"nutrition|food\s+service|school\s+lunch|meal\s+program",
+        r"youth\s+report",
+        r"student\s+(?:school\s+)?board\s+representative",
+        r"scholar\s+report",
+        r"disciplin\w*\s+(?:of\s+)?(?:a\s+)?(?:particular|student)",
+        r"expuls",
+        r"individual\s+plan\s+of\s+study",
     ],
     "community_relations": [
         r"public\s+(comment|hearing|forum|participation|input)",
-        r"community\s+(relation|partner|engagement)",
+        r"community\s+(relation|partner|engagement|comment)",
         r"speaker",
         r"communication",
-        r"citizen.?s?\s+comment",
+        r"citizen.?s?\s+(?:comment|time|input)",
         r"open\s+forum",
         r"hearing\s+(from|of)\s+(the\s+)?(public|visitor|those\s+present)",
         r"call\s+to\s+the\s+public",
@@ -148,6 +165,8 @@ CATEGORY_RULES = {
         r"visitor.?s?\s+comments?",
         r"requests?\s+to\s+address\s+the\s+board",
         r"hearing\s+on\s+polic",
+        r"recognitions?\b|awards?\b|honors?\b",
+        r"community\s+comments?",
     ],
     "technology": [
         r"technolog(y|ical)",
@@ -242,6 +261,20 @@ CATEGORY_RULES = {
         r"organizational\s+items?",
         r"^meeting\s+schedule$",
         r"schedule\s+of\s+future\s+board",
+        r"part\s+(i|ii|iii|iv|v)\b",
+        r"enter\s+(?:public|open)\s+meeting",
+        r"regular\s+meeting\s+(?:minutes|called)",
+        r"^special\s+meeting$",
+        r"nominations?\s+for\s+board\s+(?:president|vice|secretary|officer)",
+        r"election\s+of\s+board\s+(?:president|vice|secretary|officer)",
+        r"accept\s+and\s+adopt",
+        r"adopt\s+(?:the\s+)?(?:agenda|resolution|proposed)",
+        r"adopt\s+(?:the\s+)?proposed\s+changes",
+        r"a\s+motion\s+to\s+approve\s+the\s+(?:agenda|minutes)",
+        r"resolution\s*(?:#|no\.?|:)?\s*(?:\d|approv)",
+        r"approve\s+(?:the\s+)?(?:agenda|minutes|meeting)",
+        r"mission\s+statement",
+        r"audio\s+files?\b",
     ],
     "admin_operations": [
         r"action\s+items?",
@@ -349,6 +382,26 @@ CATEGORY_RULES = {
         r"action\s*[-–]\s*(general|business)",
         r"pledge\s+leader",
         r"national\s+anthem",
+        r"legislation\b",
+        r"liaison\s+reports?",
+        r"external\s+reports?",
+        r"special\s+reports?",
+        r"discussion/action",
+        r"^comments?\s*$",
+        r"comments?\s+by\s+the\s+(?:treasurer|superintendent)",
+        r"items?\s+for\s+distribution",
+        r"district\s+updates?",
+        r"superinten\w+\s+(?:remarks?|business|closing|update|report)",
+        r"next\s+meeting.?s?\s+topics?",
+        r"board\s+round\s*table",
+        r"agenda\s+preview",
+        r"look\s+around\s+the\s+district",
+        r"resolutions?\s+(?:added|supporting)",
+        r"academics?\s+resolutions?",
+        r"abstracts?\b",
+        r"board\s+member\s+resolution",
+        r"information\s+only\s+reports?",
+        r"rpm\s+update",
     ],
 }
 
@@ -593,7 +646,7 @@ class RuleBasedExtractor:
                 name = name.strip()
                 if name and len(name) > 2 and name.lower() not in ("none", "n/a"):
                     clean = self._clean_member_name(name)
-                    if clean and clean not in meeting.members_present:
+                    if clean and self._is_valid_member_name(clean) and clean not in meeting.members_present:
                         meeting.members_present.append(clean)
 
         absent_match = re.search(
@@ -606,7 +659,7 @@ class RuleBasedExtractor:
                 name = name.strip()
                 if name and len(name) > 2 and name.lower() not in ("none", "n/a"):
                     clean = self._clean_member_name(name)
-                    if clean and clean not in meeting.members_absent:
+                    if clean and self._is_valid_member_name(clean) and clean not in meeting.members_absent:
                         meeting.members_absent.append(clean)
 
         # Build index of existing agenda items by title for merging
@@ -1089,6 +1142,16 @@ class RuleBasedExtractor:
         clean_text = re.sub(r'\s*\*?\((?:PUBLIC|public)[^)]*\)\s*$', '', clean_text)
         # Strip leading "Consent - " prefix to expose the real topic
         consent_stripped = re.sub(r'^Consent\s*[-–]\s*', '', clean_text, flags=re.IGNORECASE)
+        # Strip leading "Action (Consent):" or "Action:" prefix
+        action_stripped = re.sub(
+            r'^(?:Action\s*(?:\(Consent\)|Only)?\s*[-–:,]?\s*)',
+            '', clean_text, flags=re.IGNORECASE
+        ).strip()
+        # Strip leading "Resolution:" prefix to expose the real topic
+        resolution_stripped = re.sub(
+            r'^Resolution\s*:\s*(?:Motion\s+to\s+)?(?:That\s+the\s+)?(?:School\s+Board\s+)?(?:Approv\w+\s+)?',
+            '', clean_text, flags=re.IGNORECASE
+        ).strip()
 
         scores = {}
         for cat, patterns in self.category_patterns.items():
@@ -1096,6 +1159,12 @@ class RuleBasedExtractor:
             # Also check with consent prefix stripped
             if consent_stripped != clean_text:
                 score += sum(1 for p in patterns if p.search(consent_stripped))
+            # Also check with action prefix stripped
+            if action_stripped != clean_text:
+                score += sum(1 for p in patterns if p.search(action_stripped))
+            # Also check with resolution prefix stripped
+            if resolution_stripped != clean_text and len(resolution_stripped) > 5:
+                score += sum(1 for p in patterns if p.search(resolution_stripped))
             if score > 0:
                 scores[cat] = score
 
@@ -1105,6 +1174,16 @@ class RuleBasedExtractor:
 
         if scores:
             return max(scores, key=scores.get)
+
+        # Fallback heuristics for items that match no category patterns:
+        # "Motion by Name" items are board actions (typically from minutes text)
+        if re.match(r'^Motion\s+by\b', clean_text, re.IGNORECASE):
+            return "admin_operations"
+
+        # "Resolution:" items that didn't match any specific category
+        if re.match(r'^Resolution\s*[:#]', clean_text, re.IGNORECASE):
+            return "procedural"
+
         return "other"
 
     def _assess_vote_likelihood(self, text: str) -> tuple[bool, str]:
@@ -1406,10 +1485,22 @@ class RuleBasedExtractor:
             if name and len(name) > 2:
                 members[name] = "secretary"
 
-        # Populate meeting fields
+        # Populate meeting fields, filtering out invalid names
         if members:
-            meeting.members_present = list(members.keys())
-            meeting.member_roles = members
+            valid_members = {
+                name: role for name, role in members.items()
+                if self._is_valid_member_name(name)
+            }
+            meeting.members_present = list(valid_members.keys())
+            meeting.member_roles = valid_members
+
+    # Blocklist of names that are titles, roles, or other non-name strings
+    MEMBER_NAME_BLOCKLIST = {
+        "trustee", "attorney", "president", "vice president", "secretary",
+        "treasurer", "superintendent", "none", "none.", "n/a", "absent",
+        "present", "member", "chair", "chiar", "vice-chair", "technology",
+        "seller", "sale", "purchaser(s)", "superintendent)",
+    }
 
     @staticmethod
     def _clean_member_name(name: str) -> str:
@@ -1420,12 +1511,71 @@ class RuleBasedExtractor:
         name = re.sub(r',?\s*(?:Ed\.D\.?|Ph\.D\.?|M\.D\.?|J\.D\.?|Esq\.?)$', '', name)
         # Remove quoted nicknames but keep the rest: Teresa "Terry" Castillo -> Teresa Castillo
         name = re.sub(r'\s*"[^"]+"\s*', ' ', name)
+        # Remove parenthetical notes like "(arrived at 7:05 p.m.)" or "(virtual)"
+        name = re.sub(r'\s*\([^)]*\)\s*', ' ', name)
+        # Remove "arrived/departed" annotations
+        name = re.sub(r'\s*(?:arrived|departed).*$', '', name, flags=re.IGNORECASE)
         # Normalize whitespace
         name = ' '.join(name.split())
         # Title-case if all caps
         if name == name.upper() and len(name) > 3:
             name = name.title()
         return name.strip()
+
+    @classmethod
+    def _is_valid_member_name(cls, name: str) -> bool:
+        """Validate that a string is a plausible board member name.
+
+        Rejects:
+        - Names shorter than 4 characters (catches 'Esq.', single-word fragments)
+        - Names on the blocklist (titles, roles, placeholders)
+        - Names containing digits (catches '#3-24/25', 'Ca 90504')
+        - Names that are all uppercase and shorter than 5 chars (stray acronyms)
+        - Names that look like sentences or data fragments (contain colons, start with parens)
+        """
+        if not name or not name.strip():
+            return False
+
+        name_stripped = name.strip()
+
+        # Too short
+        if len(name_stripped) < 4:
+            return False
+
+        # Blocklist check (case-insensitive)
+        if name_stripped.lower().rstrip('.') in cls.MEMBER_NAME_BLOCKLIST:
+            return False
+
+        # Contains digits — catches identifiers, zip codes, dates, case numbers
+        if re.search(r'\d', name_stripped):
+            return False
+
+        # Starts with special characters — catches "(3 anticipated cases", "#3-24/25"
+        if re.match(r'^[^A-Za-z]', name_stripped):
+            return False
+
+        # All uppercase and short — stray acronyms like "CSEA", "SEIU"
+        if name_stripped == name_stripped.upper() and len(name_stripped) < 5:
+            return False
+
+        # Contains colons — catches "Administration Present:", "Agency Negotiators: ..."
+        if ':' in name_stripped:
+            return False
+
+        # Looks like a sentence or phrase (too many words, >6)
+        if len(name_stripped.split()) > 6:
+            return False
+
+        # Starts with common non-name prefixes
+        non_name_prefixes = (
+            'that the ', 'agency ', 'administration ', 'agenda ',
+            'property', 'arrived', 'departed', 'here @', 'arrived @',
+            'member ', 'date:', 'time:', 'ca ', 'none ',
+        )
+        if name_stripped.lower().startswith(non_name_prefixes):
+            return False
+
+        return True
 
     @staticmethod
     def _deduplicate_votes(individual_votes: list) -> list:

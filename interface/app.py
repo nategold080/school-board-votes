@@ -77,9 +77,10 @@ def category_selectbox(label="Category", key=None, include_all=True):
 
 # ── Page config & CSS ─────────────────────────────────────────────────────
 
+_favicon = Path(__file__).resolve().parent.parent / ".streamlit" / "favicon.png"
 st.set_page_config(
     page_title="School Board Vote Tracker",
-    page_icon=":classical_building:",
+    page_icon=str(_favicon) if _favicon.exists() else ":classical_building:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -223,6 +224,10 @@ def main():
         "School Board Vote Tracker &bull; "
         "Data extracted from public BoardDocs minutes using a zero-cost rule engine &bull; "
         "No LLM API calls required"
+        "<br>"
+        "Built by <strong>Nathan Goldberg</strong> &nbsp;|&nbsp; "
+        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3; text-decoration: none;'>nathanmauricegoldberg@gmail.com</a> &nbsp;|&nbsp; "
+        "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' style='color: #0984E3; text-decoration: none;'>LinkedIn</a>"
         "</div>",
         unsafe_allow_html=True,
     )

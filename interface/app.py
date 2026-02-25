@@ -424,7 +424,7 @@ def main():
         "padding: 20px 24px; margin-bottom: 1.2rem; line-height: 1.7;'>"
         "<span style='font-family: Inter, sans-serif; font-size: 0.95rem; color: #E2E8F0;'>"
         "This dashboard presents the first structured database of school board voting records "
-        "in the United States — extracted from public BoardDocs meeting minutes using a "
+        "in the United States, extracted from public BoardDocs meeting minutes using a "
         "zero-cost rule engine (no LLM API calls). The current dataset covers "
         "<strong>{n_districts:,} districts</strong> across <strong>{n_states} states</strong> with "
         "<strong>{n_votes:,} votes</strong> and serves as a <strong>proof of concept</strong> "

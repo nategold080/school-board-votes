@@ -25,7 +25,7 @@ from database.operations import DatabaseOperations
 from analytics.vote_analytics import VoteAnalytics
 from analytics.visualizations import (
     category_vote_chart, state_comparison_chart, dissent_rate_chart,
-    monthly_trend_chart, member_vote_pie, district_contested_chart,
+    member_vote_pie,
 )
 
 # ── Constants ─────────────────────────────────────────────────────────────
@@ -416,7 +416,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    tabs = st.tabs(["Overview", "Board Members", "Explore", "Trends"])
+    tabs = st.tabs(["Overview", "Board Members", "Explore"])
 
     with tabs[0]:
         render_overview(db_ops, analytics, session, stats)
@@ -424,8 +424,6 @@ def main():
         render_board_members(analytics, session)
     with tabs[2]:
         render_explore(db_ops, analytics, session)
-    with tabs[3]:
-        render_trends(analytics)
 
     # Footer
     st.markdown("")
@@ -498,30 +496,25 @@ def render_overview(db_ops, analytics, session, stats):
                 key="ov_state",
             )
 
-    # Charts Row 2
-    col1, col2 = st.columns(2)
-    with col1:
-        contested_cats = analytics.most_contested_categories()
-        if contested_cats:
-            for c in contested_cats:
-                c["category"] = format_category(c["category"])
-            st.plotly_chart(
-                dissent_rate_chart(contested_cats),
-                use_container_width=True,
-                key="ov_dissent",
-            )
-    with col2:
-        trends = analytics.vote_trends_by_month()
-        if trends:
-            st.plotly_chart(
-                monthly_trend_chart(trends),
-                use_container_width=True,
-                key="ov_monthly",
-            )
+    # Dissent rate chart — full width
+    contested_cats = analytics.most_contested_categories()
+    if contested_cats:
+        for c in contested_cats:
+            c["category"] = format_category(c["category"])
+        st.plotly_chart(
+            dissent_rate_chart(contested_cats),
+            use_container_width=True,
+            key="ov_dissent",
+        )
 
-    # Data quality
+    # Extraction confidence
     st.markdown("")
-    section_header("Data Quality")
+    section_header("Extraction Confidence")
+    st.markdown(
+        "Confidence reflects how many extraction signals were present in the source "
+        "text — not whether the data is correct. All records are extracted from real "
+        "board meeting minutes and are overwhelmingly accurate regardless of confidence level."
+    )
     confidence_counts = (
         session.query(Vote.confidence, func.count(Vote.vote_id))
         .group_by(Vote.confidence)
@@ -529,17 +522,41 @@ def render_overview(db_ops, analytics, session, stats):
     )
     if confidence_counts:
         conf_data = {r[0] or "unknown": r[1] for r in confidence_counts}
+        total = sum(conf_data.values())
+        conf_levels = [
+            (
+                "High",
+                conf_data.get("high", 0),
+                "Explicit roll-call language or structured BoardDocs vote blocks — "
+                "multiple confirming signals in the source text",
+            ),
+            (
+                "Medium",
+                conf_data.get("medium", 0),
+                "Several vote-indicating patterns matched (e.g., motion text + result "
+                "+ vote count all present)",
+            ),
+            (
+                "Low",
+                conf_data.get("low", 0),
+                "Inferred from a single pattern match — still extracted from real "
+                "meeting data, just fewer confirming signals",
+            ),
+        ]
+
         conf_df = pd.DataFrame([
-            {"Confidence": level.title(), "Votes": conf_data.get(level, 0)}
-            for level in ["high", "medium", "low"]
-            if conf_data.get(level, 0) > 0
+            {"Confidence": level, "Votes": count}
+            for level, count, _ in conf_levels if count > 0
         ])
+
         col1, col2 = st.columns([1, 2])
         with col1:
-            total = sum(conf_data.values())
-            for _, row in conf_df.iterrows():
-                pct = row["Votes"] / total * 100 if total else 0
-                st.metric(f"{row['Confidence']} Confidence", f"{row['Votes']:,} ({pct:.1f}%)")
+            for level, count, description in conf_levels:
+                if count == 0:
+                    continue
+                pct = count / total * 100 if total else 0
+                st.metric(f"{level} Confidence", f"{count:,} ({pct:.1f}%)")
+                st.caption(description)
         with col2:
             colors = {"High": "#00B894", "Medium": "#FDCB6E", "Low": "#FF7675"}
             fig = go.Figure(go.Bar(
@@ -551,16 +568,11 @@ def render_overview(db_ops, analytics, session, stats):
                 template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="Inter, sans-serif"),
-                title="Vote Confidence Distribution",
+                title="Extraction Confidence Distribution",
                 height=350, margin=dict(l=40, r=20, t=40, b=40),
                 yaxis=dict(range=[0, max(conf_df["Votes"]) * 1.18]),
             )
             st.plotly_chart(fig, use_container_width=True, key="ov_confidence")
-        st.caption(
-            "**High** confidence votes have explicit roll-call language or structured BoardDocs vote blocks. "
-            "**Medium** confidence votes match multiple vote-indicating patterns. "
-            "**Low** confidence votes are inferred from agenda item type with a single pattern match."
-        )
 
     # Methodology
     st.markdown("")
@@ -1056,53 +1068,6 @@ def _explore_members(analytics, session):
         st.info(
             "Use the filters above to search for board members by state, name, or district."
         )
-
-
-# ── Trends tab ───────────────────────────────────────────────────────────
-
-def render_trends(analytics):
-    trends = analytics.vote_trends_by_month()
-    if trends:
-        st.plotly_chart(
-            monthly_trend_chart(trends),
-            use_container_width=True,
-            key="tr_monthly",
-        )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        categories = analytics.votes_by_category()
-        if categories:
-            for c in categories:
-                c["category"] = format_category(c["category"])
-            st.plotly_chart(
-                category_vote_chart(categories),
-                use_container_width=True,
-                key="tr_category",
-            )
-    with col2:
-        contested = analytics.most_contested_categories()
-        if contested:
-            for c in contested:
-                c["category"] = format_category(c["category"])
-            st.plotly_chart(
-                dissent_rate_chart(contested),
-                use_container_width=True,
-                key="tr_dissent",
-            )
-
-    section_header("District Comparison: Contested Vote Rates")
-    st.caption("Districts with the highest proportion of non-unanimous votes (minimum 50 votes).")
-    district_rates = analytics.district_dissent_rates()
-    if district_rates:
-        # Filter out outliers: require at least 50 votes for a meaningful comparison
-        district_rates = [d for d in district_rates if d["total_votes"] >= 50]
-        if district_rates:
-            st.plotly_chart(
-                district_contested_chart(district_rates),
-                use_container_width=True,
-                key="tr_district",
-            )
 
 
 if __name__ == "__main__":

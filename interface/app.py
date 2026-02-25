@@ -331,9 +331,28 @@ iframe[title="streamlit_badge"] { display: none !important; }
 /* Sidebar */
 [data-testid="stSidebar"] { background: #1B2A4A; }
 
-/* Tabs */
-.stTabs [data-baseweb="tab-list"] { gap: 8px; }
-.stTabs [data-baseweb="tab"] { font-family: 'Inter', sans-serif; font-weight: 500; }
+/* Tabs — prominent navigation */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 6px;
+    background: #1B2A4A;
+    border-radius: 10px;
+    padding: 6px 8px;
+    border: 1px solid #334155;
+}
+.stTabs [data-baseweb="tab"] {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    padding: 10px 28px;
+    border-radius: 8px;
+    color: #94A3B8;
+}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background: #0984E3;
+    color: #FFFFFF;
+}
+.stTabs [data-baseweb="tab-highlight"] { display: none; }
+.stTabs [data-baseweb="tab-border"] { display: none; }
 
 div[data-testid="stDataFrame"] div[class*="glideDataEditor"] {
     border: 1px solid #334155;

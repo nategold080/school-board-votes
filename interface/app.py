@@ -576,7 +576,7 @@ def render_overview(db_ops, analytics, session, stats):
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="Inter, sans-serif"),
                 title="Votes by Extraction Method",
-                height=350, margin=dict(l=40, r=20, t=40, b=40),
+                height=550, margin=dict(l=40, r=20, t=40, b=40),
                 yaxis=dict(range=[0, max(conf_df["Votes"]) * 1.18]),
             )
             st.plotly_chart(fig, use_container_width=True, key="ov_confidence")

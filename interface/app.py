@@ -56,6 +56,8 @@ CATEGORY_LABELS = {
 
 ALL_CATEGORIES = list(CATEGORY_LABELS.keys())
 
+ITEMS_PER_PAGE = 10
+
 # ── Name validation ───────────────────────────────────────────────────────
 
 _BAD_NAME_START = [
@@ -135,10 +137,7 @@ def completeness_score(vote, item):
 
 
 def _render_member_detail(profile, analytics, session, key_prefix):
-    """Render the full profile for a selected board member.
-
-    *key_prefix* ensures plotly_chart keys are unique across sections.
-    """
+    """Render the full profile for a selected board member."""
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Votes", profile["total_votes"])
     c2.metric("Yes Votes", profile["yes_votes"])
@@ -203,6 +202,48 @@ def _render_member_detail(profile, analytics, session, key_prefix):
             use_container_width=True,
             hide_index=True,
         )
+
+
+def _render_vote_expander(vote, item, meeting, district):
+    """Render a single contested vote inside an expander."""
+    margin = ""
+    if vote.votes_for is not None and vote.votes_against is not None:
+        margin = f" ({vote.votes_for}-{vote.votes_against})"
+
+    icon = "FAILED" if vote.result == "failed" else "CONTESTED"
+    cat_label = format_category(item.item_category)
+
+    with st.expander(
+        f"[{icon}] {district.district_name} ({district.state}) | "
+        f"{meeting.meeting_date} | {item.item_title}{margin}"
+    ):
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.write(f"**Category:** {cat_label}")
+            st.write(f"**Motion:** {vote.motion_text or 'N/A'}")
+            st.write(f"**Result:** {vote.result.upper()}{margin}")
+            if vote.motion_maker or vote.motion_seconder:
+                st.write(
+                    f"**Moved by:** {vote.motion_maker or '?'} / "
+                    f"**Seconded by:** {vote.motion_seconder or '?'}"
+                )
+        with col2:
+            yes_votes = [iv for iv in vote.individual_votes if iv.member_vote == "yes"]
+            no_votes = [iv for iv in vote.individual_votes if iv.member_vote == "no"]
+            abstains = [iv for iv in vote.individual_votes if iv.member_vote == "abstain"]
+            if yes_votes:
+                st.markdown(
+                    "**Yes:** " + ", ".join(iv.member_name for iv in yes_votes)
+                )
+            if no_votes:
+                st.markdown(
+                    "**No:** "
+                    + ", ".join(f"**{iv.member_name}**" for iv in no_votes)
+                )
+            if abstains:
+                st.markdown(
+                    "**Abstain:** " + ", ".join(iv.member_name for iv in abstains)
+                )
 
 
 # ── Page config & CSS ─────────────────────────────────────────────────────
@@ -345,7 +386,7 @@ def main():
             "records. Data is extracted from public BoardDocs meeting minutes using a "
             "zero-cost rule engine — **no LLM API calls required**.\n\n"
             "Each vote receives a confidence score (high/medium/low) based on extraction "
-            "quality. Use the confidence filter on the Contested Votes tab to focus on "
+            "quality. Use the confidence filter on the Explore tab to focus on "
             "the most reliable records."
         )
 
@@ -375,22 +416,15 @@ def main():
         unsafe_allow_html=True,
     )
 
-    tabs = st.tabs([
-        "Overview", "Contested Votes", "Vote Search",
-        "Districts", "Board Members", "Trends",
-    ])
+    tabs = st.tabs(["Overview", "Board Members", "Explore", "Trends"])
 
     with tabs[0]:
         render_overview(db_ops, analytics, session, stats)
     with tabs[1]:
-        render_contested_votes(db_ops, session)
+        render_board_members(analytics, session)
     with tabs[2]:
-        render_vote_search(db_ops)
+        render_explore(db_ops, analytics, session)
     with tabs[3]:
-        render_district_browser(db_ops, session)
-    with tabs[4]:
-        render_member_profiles(analytics, session)
-    with tabs[5]:
         render_trends(analytics)
 
     # Footer
@@ -485,26 +519,6 @@ def render_overview(db_ops, analytics, session, stats):
                 key="ov_monthly",
             )
 
-    # Top dissenters
-    section_header("Most Frequent Dissenters")
-    st.caption("Board members who most often vote 'No' on motions (minimum 3 recorded votes).")
-    dissenters = analytics.top_dissenters(limit=15)
-    if dissenters:
-        dissenters = [d for d in dissenters if is_valid_member_name(d["member_name"])][:10]
-        if dissenters:
-            diss_df = pd.DataFrame(dissenters)
-            diss_df["dissent_rate"] = diss_df["dissent_rate"].apply(lambda x: f"{x:.1%}")
-            st.dataframe(
-                diss_df, use_container_width=True, hide_index=True,
-                column_config={
-                    "member_name": "Board Member",
-                    "total_votes": "Total Votes",
-                    "no_votes": "No Votes",
-                    "abstain_votes": "Abstentions",
-                    "dissent_rate": "Dissent Rate",
-                },
-            )
-
     # Data quality
     st.markdown("")
     section_header("Data Quality")
@@ -590,10 +604,97 @@ minutes published through BoardDocs:
         ))
 
 
-# ── Contested Votes tab ──────────────────────────────────────────────────
+# ── Board Members tab ────────────────────────────────────────────────────
 
-def render_contested_votes(db_ops, session):
-    # Fetch all contested votes, then filter to those with individual records
+@st.cache_data(ttl=600)
+def _get_featured_members(_session):
+    """Return board members with the most interesting voting records."""
+    rows = (
+        _session.query(
+            IndividualVote.member_name,
+            func.count(IndividualVote.individual_vote_id).label("total"),
+            func.sum(case((IndividualVote.member_vote == "yes", 1), else_=0)).label("yes"),
+            func.sum(case((IndividualVote.member_vote == "no", 1), else_=0)).label("no"),
+            func.sum(case((IndividualVote.member_vote == "abstain", 1), else_=0)).label("abstain"),
+        )
+        .group_by(IndividualVote.member_name)
+        .having(func.count(IndividualVote.individual_vote_id) >= 30)
+        .having(
+            (func.sum(case((IndividualVote.member_vote == "no", 1), else_=0))
+             + func.sum(case((IndividualVote.member_vote == "abstain", 1), else_=0))) >= 1
+        )
+        .order_by(
+            (func.sum(case((IndividualVote.member_vote == "no", 1), else_=0))
+             * 100.0 / func.count(IndividualVote.individual_vote_id)).desc()
+        )
+        .all()
+    )
+    featured = []
+    for r in rows:
+        name = r[0]
+        if not is_valid_member_name(name):
+            continue
+        featured.append({
+            "name": name,
+            "total": r[1],
+            "yes": r[2],
+            "no": r[3],
+            "abstain": r[4],
+            "dissent_pct": round(r[3] / r[1] * 100, 1) if r[1] else 0,
+        })
+        if len(featured) >= 25:
+            break
+    return featured
+
+
+def render_board_members(analytics, session):
+    section_header("Featured Board Members")
+
+    featured = _get_featured_members(session)
+
+    if featured:
+        feat_options = [
+            f"{m['name']} — {m['total']} votes, {m['no']} No, "
+            f"{m['abstain']} Abstain ({m['dissent_pct']}% dissent)"
+            for m in featured
+        ]
+        feat_idx = st.selectbox(
+            "Select a featured board member",
+            range(len(feat_options)),
+            format_func=lambda i: feat_options[i],
+            key="feat_member",
+        )
+        feat_name = featured[feat_idx]["name"]
+        profile = analytics.member_profile(feat_name)
+        _render_member_detail(profile, analytics, session, key_prefix="feat")
+    else:
+        st.info("No featured members available.")
+
+
+# ── Explore tab ──────────────────────────────────────────────────────────
+
+def render_explore(db_ops, analytics, session):
+    search_mode = st.radio(
+        "What are you looking for?",
+        ["Contested Votes", "Keyword Search", "Browse Districts", "Find Board Members"],
+        horizontal=True,
+        key="explore_mode",
+    )
+
+    st.markdown("")
+
+    if search_mode == "Contested Votes":
+        _explore_contested(db_ops, session)
+    elif search_mode == "Keyword Search":
+        _explore_keyword(db_ops)
+    elif search_mode == "Browse Districts":
+        _explore_districts(db_ops, session)
+    elif search_mode == "Find Board Members":
+        _explore_members(analytics, session)
+
+
+def _explore_contested(db_ops, session):
+    """Contested votes with filters and pagination."""
     all_results = db_ops.get_contested_votes(limit=1000)
     all_results = [
         (v, i, m, d) for v, i, m, d in all_results
@@ -602,21 +703,13 @@ def render_contested_votes(db_ops, session):
 
     total_count = len(all_results)
     failed_count = sum(1 for v, i, m, d in all_results if v.result == "failed")
-    margins = [
-        abs(v.votes_for - v.votes_against)
-        for v, i, m, d in all_results
-        if v.votes_for is not None and v.votes_against is not None
-    ]
-    avg_margin = sum(margins) / len(margins) if margins else 0
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
     c1.metric("Contested Votes with Roll Calls", f"{total_count:,}")
     c2.metric("Motions That Failed", f"{failed_count:,}")
-    c3.metric("Avg. Vote Margin", f"{avg_margin:.1f}")
 
     st.markdown("")
 
-    # Filters
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         state_filter = st.text_input(
@@ -630,10 +723,10 @@ def render_contested_votes(db_ops, session):
         )
     with col4:
         sort_by = st.selectbox(
-            "Sort by", ["Most Detailed", "Most Recent", "Closest Margin"]
+            "Sort by", ["Most Detailed", "Most Recent", "Closest Margin"],
+            key="cv_sort",
         )
 
-    # Apply filters
     results = list(all_results)
     if state_filter:
         sf = state_filter.upper().strip()
@@ -648,7 +741,6 @@ def render_contested_votes(db_ops, session):
             if v.confidence in ("high", "medium")
         ]
 
-    # Sort
     if sort_by == "Most Recent":
         results = sorted(results, key=lambda r: str(r[2].meeting_date or ""), reverse=True)
     elif sort_by == "Closest Margin":
@@ -658,57 +750,92 @@ def render_contested_votes(db_ops, session):
                 return abs(v.votes_for - v.votes_against)
             return 999
         results = sorted(results, key=margin_key)
-    else:  # Most Detailed (default)
+    else:
         results = sorted(
             results, key=lambda r: completeness_score(r[0], r[1]), reverse=True
         )
 
     st.write(f"**{len(results)}** contested votes found")
 
-    for vote, item, meeting, district in results:
-        margin = ""
-        if vote.votes_for is not None and vote.votes_against is not None:
-            margin = f" ({vote.votes_for}-{vote.votes_against})"
+    # Pagination
+    if "cv_show_count" not in st.session_state:
+        st.session_state.cv_show_count = ITEMS_PER_PAGE
 
-        icon = "FAILED" if vote.result == "failed" else "CONTESTED"
-        cat_label = format_category(item.item_category)
+    show_n = min(st.session_state.cv_show_count, len(results))
+    for vote, item, meeting, district in results[:show_n]:
+        _render_vote_expander(vote, item, meeting, district)
 
-        with st.expander(
-            f"[{icon}] {district.district_name} ({district.state}) | "
-            f"{meeting.meeting_date} | {item.item_title}{margin}"
-        ):
-            col1, col2 = st.columns([2, 1])
-            with col1:
+    if show_n < len(results):
+        remaining = len(results) - show_n
+        if st.button(f"Show more ({remaining} remaining)", key="cv_more"):
+            st.session_state.cv_show_count += ITEMS_PER_PAGE
+            st.rerun()
+
+
+def _explore_keyword(db_ops):
+    """Keyword search across all votes."""
+    col1, col2, col3 = st.columns([3, 1, 1])
+    with col1:
+        keyword = st.text_input(
+            "Search keyword",
+            placeholder="e.g., superintendent, budget, textbook, HVAC",
+            key="ks_keyword",
+        )
+    with col2:
+        state_filter = st.text_input("State", placeholder="e.g., NY", key="ks_state")
+    with col3:
+        cat_val = category_selectbox("Category", key="ks_cat")
+
+    if keyword:
+        results = db_ops.search_votes(
+            keyword,
+            state=state_filter.upper().strip() if state_filter else None,
+            category=cat_val,
+        )
+        st.write(f"Found **{len(results)}** votes matching '{keyword}'")
+
+        if "ks_show_count" not in st.session_state:
+            st.session_state.ks_show_count = ITEMS_PER_PAGE
+
+        show_n = min(st.session_state.ks_show_count, len(results))
+
+        for vote, item, meeting, district in results[:show_n]:
+            cat_label = format_category(item.item_category)
+            conf_badge = {"high": "HIGH", "medium": "MED", "low": "LOW"}.get(
+                vote.confidence or "low", "?"
+            )
+            with st.expander(
+                f"{district.district_name} ({district.state}) | {meeting.meeting_date} | "
+                f"{item.item_title} [{conf_badge}]"
+            ):
                 st.write(f"**Category:** {cat_label}")
+                st.write(f"**Confidence:** {(vote.confidence or 'unknown').title()}")
                 st.write(f"**Motion:** {vote.motion_text or 'N/A'}")
-                st.write(f"**Result:** {vote.result.upper()}{margin}")
-                if vote.motion_maker or vote.motion_seconder:
-                    st.write(
-                        f"**Moved by:** {vote.motion_maker or '?'} / "
-                        f"**Seconded by:** {vote.motion_seconder or '?'}"
-                    )
-            with col2:
-                yes_votes = [iv for iv in vote.individual_votes if iv.member_vote == "yes"]
-                no_votes = [iv for iv in vote.individual_votes if iv.member_vote == "no"]
-                abstains = [iv for iv in vote.individual_votes if iv.member_vote == "abstain"]
-                if yes_votes:
-                    st.markdown(
-                        "**Yes:** " + ", ".join(iv.member_name for iv in yes_votes)
-                    )
-                if no_votes:
-                    st.markdown(
-                        "**No:** "
-                        + ", ".join(f"**{iv.member_name}**" for iv in no_votes)
-                    )
-                if abstains:
-                    st.markdown(
-                        "**Abstain:** " + ", ".join(iv.member_name for iv in abstains)
-                    )
+                unanimous = (
+                    "Unanimous" if vote.is_unanimous
+                    else f"{vote.votes_for}-{vote.votes_against}"
+                )
+                st.markdown(f"**Result:** {vote.result.upper()} ({unanimous})")
+                if vote.individual_votes:
+                    st.write("**Individual Votes:**")
+                    for iv in vote.individual_votes:
+                        marker = (
+                            "Yes" if iv.member_vote == "yes"
+                            else f"**{iv.member_vote.upper()}**"
+                        )
+                        st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;{iv.member_name}: {marker}")
+
+        if show_n < len(results):
+            remaining = len(results) - show_n
+            if st.button(f"Show more ({remaining} remaining)", key="ks_more"):
+                st.session_state.ks_show_count += ITEMS_PER_PAGE
+                st.rerun()
+    else:
+        st.info("Enter a keyword to search across all vote records.")
 
 
-# ── District Browser tab ─────────────────────────────────────────────────
-
-def render_district_browser(db_ops, session):
+def _explore_districts(db_ops, session):
+    """Browse districts and their meetings."""
     districts = db_ops.get_all_districts()
     if not districts:
         st.warning("No districts in database.")
@@ -724,7 +851,9 @@ def render_district_browser(db_ops, session):
     )
     with col2:
         district_names = {d.district_name: d for d in filtered}
-        selected_name = st.selectbox("District", sorted(district_names.keys()), key="db_district")
+        selected_name = st.selectbox(
+            "District", sorted(district_names.keys()), key="db_district"
+        )
 
     if not selected_name:
         return
@@ -815,142 +944,8 @@ def render_district_browser(db_ops, session):
                         )
 
 
-# ── Vote Search tab ──────────────────────────────────────────────────────
-
-def render_vote_search(db_ops):
-    col1, col2, col3 = st.columns([3, 1, 1])
-    with col1:
-        keyword = st.text_input(
-            "Search keyword",
-            placeholder="e.g., superintendent, budget, textbook, HVAC",
-        )
-    with col2:
-        state_filter = st.text_input("State", placeholder="e.g., NY", key="vs_state")
-    with col3:
-        cat_val = category_selectbox("Category", key="vs_cat")
-
-    if keyword:
-        results = db_ops.search_votes(
-            keyword,
-            state=state_filter.upper().strip() if state_filter else None,
-            category=cat_val,
-        )
-        st.write(f"Found **{len(results)}** votes matching '{keyword}'")
-
-        for vote, item, meeting, district in results:
-            cat_label = format_category(item.item_category)
-            conf_badge = {"high": "HIGH", "medium": "MED", "low": "LOW"}.get(
-                vote.confidence or "low", "?"
-            )
-
-            with st.expander(
-                f"{district.district_name} ({district.state}) | {meeting.meeting_date} | "
-                f"{item.item_title} [{conf_badge}]"
-            ):
-                st.write(f"**Category:** {cat_label}")
-                st.write(f"**Confidence:** {(vote.confidence or 'unknown').title()}")
-                st.write(f"**Motion:** {vote.motion_text or 'N/A'}")
-                unanimous = (
-                    "Unanimous" if vote.is_unanimous
-                    else f"{vote.votes_for}-{vote.votes_against}"
-                )
-                st.markdown(f"**Result:** {vote.result.upper()} ({unanimous})")
-                if vote.individual_votes:
-                    st.write("**Individual Votes:**")
-                    for iv in vote.individual_votes:
-                        marker = (
-                            "Yes" if iv.member_vote == "yes"
-                            else f"**{iv.member_vote.upper()}**"
-                        )
-                        st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;{iv.member_name}: {marker}")
-    else:
-        st.info("Enter a keyword to search across all vote records.")
-
-
-# ── Board Members tab ────────────────────────────────────────────────────
-
-@st.cache_data(ttl=600)
-def _get_featured_members(_session):
-    """Return a list of board members with the most interesting voting records.
-
-    Criteria: valid name, at least 30 total votes, at least 1 no or abstain,
-    sorted by dissent rate descending.
-    """
-    rows = (
-        _session.query(
-            IndividualVote.member_name,
-            func.count(IndividualVote.individual_vote_id).label("total"),
-            func.sum(case((IndividualVote.member_vote == "yes", 1), else_=0)).label("yes"),
-            func.sum(case((IndividualVote.member_vote == "no", 1), else_=0)).label("no"),
-            func.sum(case((IndividualVote.member_vote == "abstain", 1), else_=0)).label("abstain"),
-        )
-        .group_by(IndividualVote.member_name)
-        .having(func.count(IndividualVote.individual_vote_id) >= 30)
-        .having(
-            (func.sum(case((IndividualVote.member_vote == "no", 1), else_=0))
-             + func.sum(case((IndividualVote.member_vote == "abstain", 1), else_=0))) >= 1
-        )
-        .order_by(
-            (func.sum(case((IndividualVote.member_vote == "no", 1), else_=0))
-             * 100.0 / func.count(IndividualVote.individual_vote_id)).desc()
-        )
-        .all()
-    )
-    featured = []
-    for r in rows:
-        name = r[0]
-        if not is_valid_member_name(name):
-            continue
-        featured.append({
-            "name": name,
-            "total": r[1],
-            "yes": r[2],
-            "no": r[3],
-            "abstain": r[4],
-            "dissent_pct": round(r[3] / r[1] * 100, 1) if r[1] else 0,
-        })
-        if len(featured) >= 25:
-            break
-    return featured
-
-
-def render_member_profiles(analytics, session):
-    # ── Featured Board Members (top section) ──
-    section_header("Featured Board Members")
-    st.caption(
-        "Board members with the most detailed and interesting voting records — "
-        "including contested votes, dissent, and abstentions."
-    )
-
-    featured = _get_featured_members(session)
-
-    if featured:
-        feat_options = [
-            f"{m['name']} — {m['total']} votes, {m['no']} No, "
-            f"{m['abstain']} Abstain ({m['dissent_pct']}% dissent)"
-            for m in featured
-        ]
-        feat_idx = st.selectbox(
-            "Select a featured board member",
-            range(len(feat_options)),
-            format_func=lambda i: feat_options[i],
-            key="feat_member",
-        )
-        feat_name = featured[feat_idx]["name"]
-        profile = analytics.member_profile(feat_name)
-        _render_member_detail(profile, analytics, session, key_prefix="feat")
-    else:
-        st.info("No featured members available.")
-
-    st.markdown("")
-    st.markdown("")
-
-    # ── Search All Board Members (bottom section) ──
-    section_header("Search All Board Members")
-    st.caption(
-        "Search by state, district, or member name to find any board member in the database."
-    )
-
+def _explore_members(analytics, session):
+    """Search board members by state/name/district."""
     board_members = (
         session.query(BoardMember, District.district_name, District.state)
         .join(District, BoardMember.district_id == District.district_id)
@@ -976,7 +971,6 @@ def render_member_profiles(analytics, session):
             "District", placeholder="e.g., Rochester", key="bm_search_district"
         )
 
-    # Only show results if a filter is applied
     has_filter = (
         search_state != "All"
         or (search_name and search_name.strip())
@@ -1037,7 +1031,6 @@ def render_member_profiles(analytics, session):
                 .order_by(func.count(IndividualVote.individual_vote_id).desc())
                 .all()
             )
-            vote_name_set = set(m[0] for m in members_with_votes if is_valid_member_name(m[0]))
             filtered_names = set(bm.BoardMember.member_name for bm in filtered)
             selectable = [
                 m for m in members_with_votes
@@ -1099,14 +1092,17 @@ def render_trends(analytics):
             )
 
     section_header("District Comparison: Contested Vote Rates")
-    st.caption("Districts with the highest proportion of non-unanimous votes.")
+    st.caption("Districts with the highest proportion of non-unanimous votes (minimum 50 votes).")
     district_rates = analytics.district_dissent_rates()
     if district_rates:
-        st.plotly_chart(
-            district_contested_chart(district_rates),
-            use_container_width=True,
-            key="tr_district",
-        )
+        # Filter out outliers: require at least 50 votes for a meaningful comparison
+        district_rates = [d for d in district_rates if d["total_votes"] >= 50]
+        if district_rates:
+            st.plotly_chart(
+                district_contested_chart(district_rates),
+                use_container_width=True,
+                key="tr_district",
+            )
 
 
 if __name__ == "__main__":

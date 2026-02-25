@@ -87,7 +87,8 @@ def get_meeting_list(state_code, org_code, months_back=24):
                         "name": m["Name"],
                         "date": d,
                     })
-            except:
+            except (ValueError, TypeError, KeyError) as e:
+                logger.debug(f"Error parsing meeting date for {org_code}: {e}")
                 continue
         return meetings
     except Exception as e:
@@ -126,8 +127,8 @@ async def scrape_district_meetings(context, nsf_base, meetings, district_name,
                         body = await response.text()
                         if body and len(body) > 10:
                             items_html.append(body)
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Error capturing response: {e}")
 
             page.on("response", capture_responses)
 
@@ -147,18 +148,19 @@ async def scrape_district_meetings(context, nsf_base, meetings, district_name,
                         await elem.click()
                         await page.wait_for_timeout(800)
                         click_count += 1
-                    except:
+                    except Exception as e:
+                        logger.debug(f"Error clicking agenda item: {e}")
                         continue
                 if click_count > 0:
                     logger.debug(f"    Clicked {click_count} agenda items")
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Error querying clickable agenda items: {e}")
 
             body_text = ""
             try:
                 body_text = await page.inner_text("body")
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Error getting body text: {e}")
 
             # Try to load minutes view (contains actual vote results)
             minutes_text = ""
@@ -177,8 +179,8 @@ async def scrape_district_meetings(context, nsf_base, meetings, district_name,
                     link_text = ""
                     try:
                         link_text = await minutes_link.inner_text()
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Error getting minutes link text: {e}")
                     # Only click if it looks like a "View Minutes" link, not an agenda item
                     if "minute" in link_text.lower() and len(link_text) < 30:
                         # Set up listener for minutes AJAX responses
@@ -189,8 +191,8 @@ async def scrape_district_meetings(context, nsf_base, meetings, district_name,
                                     mbody = await response.text()
                                     if mbody and len(mbody) > 10:
                                         minutes_html.append(mbody)
-                            except:
-                                pass
+                            except Exception as e:
+                                logger.warning(f"Error capturing minutes response: {e}")
 
                         page.on("response", capture_minutes_response)
 
@@ -199,8 +201,8 @@ async def scrape_district_meetings(context, nsf_base, meetings, district_name,
 
                         try:
                             minutes_text = await page.inner_text("body")
-                        except:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Error getting minutes body text: {e}")
 
                         # Remove the minutes response listener
                         page.remove_listener("response", capture_minutes_response)
@@ -284,8 +286,8 @@ async def scrape_district_meetings(context, nsf_base, meetings, district_name,
             logger.warning(f"    Failed meeting {meeting['name']}: {e}")
             try:
                 await page.close()
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Error closing page: {e}")
 
     return results
 

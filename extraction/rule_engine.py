@@ -17,9 +17,28 @@ import re
 import logging
 from datetime import date
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
+import yaml
+
+from database.operations import normalize_member_name as _normalize_member_name
+
 logger = logging.getLogger(__name__)
+
+# Load extraction config from YAML
+_CONFIG_PATH = Path(__file__).parent.parent / "config" / "extraction_config.yaml"
+try:
+    with open(_CONFIG_PATH, "r") as _f:
+        EXTRACTION_CONFIG = yaml.safe_load(_f)
+except (FileNotFoundError, yaml.YAMLError) as _e:
+    logger.warning(f"Could not load extraction config from {_CONFIG_PATH}: {_e}. Using defaults.")
+    EXTRACTION_CONFIG = {}
+
+NON_VOTE_TITLES = EXTRACTION_CONFIG.get("non_vote_titles", [
+    "MEETING OPENING", "CALL TO ORDER", "PLEDGE OF ALLEGIANCE",
+    "MOMENT OF SILENCE", "ADJOURNMENT", "RECESS", "INVOCATION",
+])
 
 
 # ============================================================================
@@ -75,6 +94,13 @@ CATEGORY_RULES = {
         r"(?:action\s+(?:only\s+)?[-–]?\s*)?(?:bids?|agreements?)\b",
         r"sponsor\s+event",
         r"authorize\s+.*(?:contract|agreement|payment)",
+        r"bank\s+balance",
+        r"collateral\s+reconciliation",
+        r"cash\s+summary",
+        r"vendor\s+contract",
+        r"release\s+of\s+funds",
+        r"claim\s+settlement",
+        r"authorize\s+additional\s+pay",
     ],
     "curriculum_instruction": [
         r"curriculum",
@@ -94,6 +120,8 @@ CATEGORY_RULES = {
         r"gifted|talented|enrichment",
         r"educational\s+services?",
         r"^education$",
+        r"summer\s+school",
+        r"educational\s+tour",
     ],
     "facilities": [
         r"facilit(y|ies)",
@@ -146,6 +174,7 @@ CATEGORY_RULES = {
         r"disciplin\w*\s+(?:of\s+)?(?:a\s+)?(?:particular|student)",
         r"expuls",
         r"individual\s+plan\s+of\s+study",
+        r"student\s+delegates?",
     ],
     "community_relations": [
         r"public\s+(comment|hearing|forum|participation|input)",
@@ -189,6 +218,13 @@ CATEGORY_RULES = {
         r"anti.?rac",
         r"cultural\s+responsiv",
         r"title\s+IX",
+        r"equity\s+(?:&|and)\s+(?:culture|CRE)",
+        r"celebrating\s+(?:identity|diversity)",
+        r"equity\s+(?:update|report|plan|audit|resolution)",
+        r"equity\s+leaders?",
+        r"racial\s+equity",
+        r"social\s+justice",
+        r"multicultural",
     ],
     "special_education": [
         r"special\s+education|\bSPED\b|\bIEP\b",
@@ -206,6 +242,16 @@ CATEGORY_RULES = {
         r"call\s+to\s+order",
         r"pledge\s+of\s+allegiance",
         r"roll\s+call",
+        r"action\s+on\s+minutes",
+        r"return\s+to\s+open\s+meeting",
+        r"approve\s+as\s+presented",
+        r"final\s+resolution:\s+motion",
+        r"board\s+member\s+vote",
+        r"secretary\s+pro\s+tem",
+        r"appointment\s+of\s+secretary",
+        r"agenda\s+was\s+(adopted|approved)",
+        r"^approval$",
+        r"^addendum$",
         r"moment\s+of\s+silence",
         r"adjournment?",
         r"adjourn",
@@ -402,6 +448,13 @@ CATEGORY_RULES = {
         r"board\s+member\s+resolution",
         r"information\s+only\s+reports?",
         r"rpm\s+update",
+        r"^regular\s+agenda$",
+        r"division\s+recommendations?\s*[-–]?\s*resolutions?",
+        r"board\s+consensus",
+        r"(?:work\s+session|resolutions?\s+corrected)\s*[-–]?\s*resolutions?",
+        r"^[A-Z]\.?\s*Resolutions?$",
+        r"^resolutions?$",
+        r"authorizations?\b",
     ],
 }
 
@@ -508,6 +561,19 @@ class RuleBasedExtractor:
     No LLM calls. Near-zero marginal cost per document.
     """
 
+    # Non-name words that can follow "Motion by" — must not be extracted as person names
+    MOTION_MAKER_BLOCKLIST = {
+        "exception", "consent", "resolution", "acclamation", "roll call",
+        "voice vote", "board", "committee", "staff", "administration",
+        "roll", "voice", "unanimous",
+    }
+
+    # Navigation / UI words that should not be treated as agenda item titles
+    NAV_WORD_BLOCKLIST = {
+        "previous", "next", "back", "forward", "home", "menu",
+        "print", "close", "search", "login", "logout",
+    }
+
     def __init__(self):
         self._compile_patterns()
         self.extraction_count = 0
@@ -548,16 +614,51 @@ class RuleBasedExtractor:
         # Extract any member names from the text
         self._extract_members(raw_text, meeting)
 
-        # Post-processing: deduplicate individual votes per item
-        # Safety net for context window overlap between adjacent vote blocks
+        # Post-processing: normalize member names for consistent matching
+        meeting.members_present = list(dict.fromkeys(
+            self.normalize_member_name(n) for n in meeting.members_present
+            if self.normalize_member_name(n)
+        ))
+        meeting.members_absent = list(dict.fromkeys(
+            self.normalize_member_name(n) for n in meeting.members_absent
+            if self.normalize_member_name(n)
+        ))
+        # Rebuild member_roles with normalized keys
+        if meeting.member_roles:
+            normalized_roles = {}
+            for name, role in meeting.member_roles.items():
+                norm = self.normalize_member_name(name)
+                if norm:
+                    normalized_roles[norm] = role
+            meeting.member_roles = normalized_roles
+
         for item in meeting.agenda_items:
+            if item.motion_maker:
+                item.motion_maker = self.normalize_member_name(item.motion_maker)
+            if item.motion_seconder:
+                item.motion_seconder = self.normalize_member_name(item.motion_seconder)
+            for iv in item.individual_votes:
+                iv["member_name"] = self.normalize_member_name(iv["member_name"])
+
+        # === Post-processing Pass 1: Dedup and strip non-vote items ===
+        # Must run before vote recalculation
+        # NON_VOTE_TITLES loaded from config/extraction_config.yaml at module level
+        for item in meeting.agenda_items:
+            # Deduplicate individual votes (safety net for overlapping text regions)
             if item.individual_votes:
                 item.individual_votes = self._deduplicate_votes(item.individual_votes)
+            # P2: Strip vote records from non-vote procedural items
+            title_upper = (item.item_title or "").strip().upper()
+            if any(blocked in title_upper for blocked in NON_VOTE_TITLES):
+                item.has_vote = False
+                item.individual_votes = []
+                item.votes_for = None
+                item.votes_against = None
+                item.votes_abstain = None
 
-        # Post-processing: recalculate is_unanimous from actual individual votes
-        # This catches any code path that set individual votes without updating
-        # the unanimity flag correctly
+        # === Post-processing Pass 2: Recalculate counts and validate ===
         for item in meeting.agenda_items:
+            # Recalculate from individual votes (P3, P4)
             if item.individual_votes:
                 yes_count = sum(1 for v in item.individual_votes if v["member_vote"] == "yes")
                 no_count = sum(1 for v in item.individual_votes if v["member_vote"] == "no")
@@ -565,21 +666,62 @@ class RuleBasedExtractor:
                 item.votes_for = yes_count
                 item.votes_against = no_count
                 item.votes_abstain = abstain_count
-                item.is_unanimous = no_count == 0 and abstain_count == 0
+                # P4: Abstentions are not opposition — unanimous when no one voted "no"
+                item.is_unanimous = no_count == 0
                 item.vote_type = "roll_call"
                 item.has_vote = True
+            elif item.has_vote:
+                # P3: 0-0 non-unanimous with no individual votes — extraction failure
+                if (item.votes_for or 0) == 0 and (item.votes_against or 0) == 0:
+                    if not item.is_unanimous:
+                        item.has_vote = False
+                # P4: For items without individual votes, track unanimity via votes_against
+                if item.has_vote and item.votes_against is not None:
+                    item.is_unanimous = item.votes_against == 0
 
-        # Post-processing: validate result against actual vote counts
-        # Catches cases where result defaulted to "passed" but counts show failure
-        for item in meeting.agenda_items:
+            # P1: Validate consent agenda — reject impossible 0-for counts
+            if item.has_vote and item.item_category == "consent_agenda":
+                if (item.votes_for or 0) == 0 and (item.votes_against or 0) > 0:
+                    item.votes_for = None
+                    item.votes_against = None
+                    item.votes_abstain = None
+                    item.confidence = "low"
+            # General: 0-for with many against is extremely suspicious
+            if item.has_vote and (item.votes_for or 0) == 0 and (item.votes_against or 0) > 3:
+                item.votes_for = None
+                item.votes_against = None
+                item.votes_abstain = None
+                item.confidence = "low"
+
+            # Validate result against vote counts
             if item.votes_for is not None and item.votes_against is not None:
                 if item.votes_against > item.votes_for and item.result == "passed":
                     item.result = "failed"
-                elif item.votes_for > item.votes_against and item.result == "failed":
-                    # Could be quorum failure — only override if we have individual votes
-                    # confirming a clear majority
-                    pass
-                # Ties: leave as-is (chair tiebreaker is possible in some states)
+                if item.votes_for > item.votes_against and item.result == "failed":
+                    logger.warning(f"Contradictory result: {item.votes_for}-{item.votes_against} marked 'failed', overriding to 'passed'")
+                    item.result = "passed"
+
+        # === Post-processing Pass 3: Confidence scoring ===
+        for item in meeting.agenda_items:
+            # Strong evidence: 3+ individual votes → high
+            if len(item.individual_votes) >= 3:
+                item.confidence = "high"
+            elif len(item.individual_votes) >= 2 and item.confidence == "low":
+                item.confidence = "medium"
+            # P7: Promote low-confidence items with partial evidence to medium
+            elif item.confidence == "low" and item.has_vote:
+                if item.motion_maker and item.motion_seconder:
+                    item.confidence = "medium"
+                elif 1 <= len(item.individual_votes) <= 2:
+                    item.confidence = "medium"
+                elif item.result in ("passed", "failed", "tabled") and item.vote_type != "roll_call":
+                    title_and_desc = (item.item_title or "") + " " + (item.item_description or "")
+                    if re.search(r'motion\s+(carried|passed|failed|approved|defeated)|'
+                                 r'approved|carried|defeated|denied|tabled',
+                                 title_and_desc, re.IGNORECASE):
+                        item.confidence = "medium"
+                elif item.item_category in ("personnel", "budget_finance", "consent_agenda"):
+                    item.confidence = "medium"
 
         # Infer meeting-level confidence
         if meeting.agenda_items:
@@ -681,6 +823,11 @@ class RuleBasedExtractor:
         for i, block_match in enumerate(vote_blocks):
             motion_maker = block_match.group(1).strip()
             motion_seconder = block_match.group(2).strip()
+            # Reject non-name words extracted as motion makers
+            if motion_maker.lower() in self.MOTION_MAKER_BLOCKLIST:
+                motion_maker = ""
+            if motion_seconder.lower() in self.MOTION_MAKER_BLOCKLIST:
+                motion_seconder = ""
             block_start = block_match.start()
             # Bound context by adjacent vote blocks to prevent cross-contamination
             prev_bound = vote_blocks[i - 1].end() if i > 0 else 0
@@ -772,7 +919,7 @@ class RuleBasedExtractor:
                 votes_for = sum(1 for v in individual_votes if v["member_vote"] == "yes")
                 votes_against = sum(1 for v in individual_votes if v["member_vote"] == "no")
                 votes_abstain = sum(1 for v in individual_votes if v["member_vote"] == "abstain")
-                is_unanimous = votes_against == 0 and votes_abstain == 0
+                is_unanimous = votes_against == 0
 
             # Try to merge with an existing agenda item
             merged = False
@@ -902,6 +1049,13 @@ class RuleBasedExtractor:
         # Parse --- Item Detail --- blocks and attach to matching sections
         self._attach_item_details(text, sections)
 
+        # Filter out navigation junk and too-short titles
+        sections = [
+            s for s in sections
+            if len(s["title"].strip()) >= 3
+            and s["title"].strip().lower() not in self.NAV_WORD_BLOCKLIST
+        ]
+
         return sections
 
     def _attach_item_details(self, text: str, sections: list[dict]):
@@ -945,7 +1099,7 @@ class RuleBasedExtractor:
         """Fallback section extraction for non-standard formats."""
         sections = []
         # Try numbered items: "1. Item Title" or "A. Item Title"
-        pattern = r'^(\d+|[A-Z])\.?\s+([A-Z][^\n]{5,})'
+        pattern = r'^(\d+[A-Z]?|[A-Z])\.?\s+([A-Z][^\n]{5,})'
         for match in re.finditer(pattern, text, re.MULTILINE):
             sections.append({
                 "number": match.group(1),
@@ -1072,6 +1226,7 @@ class RuleBasedExtractor:
         elif "withdrawn" in result_lower:
             item.result = "withdrawn"
         else:
+            logger.debug(f"Unrecognized vote result '{result_text}', defaulting to 'passed'")
             item.result = "passed"
 
         # Check unanimous
@@ -1276,14 +1431,21 @@ class RuleBasedExtractor:
         # Extract motion maker
         maker_match = re.search(r'motion\s+(?:made\s+)?by\s+(?:(?:Mr|Ms|Mrs|Dr)\.?\s+)?(\w+)', text, re.IGNORECASE)
         if maker_match:
-            item.motion_maker = maker_match.group(1)
-            item.motion_text = f"Motion by {maker_match.group(1)}"
+            maker_name = maker_match.group(1)
+            if maker_name.lower() not in self.MOTION_MAKER_BLOCKLIST:
+                item.motion_maker = maker_name
+                item.motion_text = f"Motion by {maker_name}"
 
         # Extract seconder
         second_match = re.search(r'second(?:ed)?\s+by\s+(?:(?:Mr|Ms|Mrs|Dr)\.?\s+)?(\w+)', text, re.IGNORECASE)
         if second_match:
-            item.motion_seconder = second_match.group(1)
-            item.motion_text += f", seconded by {second_match.group(1)}"
+            seconder_name = second_match.group(1)
+            if seconder_name.lower() not in self.MOTION_MAKER_BLOCKLIST:
+                item.motion_seconder = seconder_name
+                if item.motion_text:
+                    item.motion_text += f", seconded by {seconder_name}"
+                else:
+                    item.motion_text = f"Seconded by {seconder_name}"
 
         # Extract individual votes from roll call (Mr./Ms. Name: Yes format)
         individual_pattern = r'(?:Mr|Ms|Mrs|Dr)\.?\s+(\w+)\s*[-–:]\s*(yes|no|aye|nay|yea|abstain|absent)'
@@ -1522,6 +1684,15 @@ class RuleBasedExtractor:
             name = name.title()
         return name.strip()
 
+    @staticmethod
+    def normalize_member_name(name: str) -> str:
+        """Normalize a member name for consistent matching.
+
+        Delegates to database.operations.normalize_member_name for a single
+        source of truth across extraction and storage layers.
+        """
+        return _normalize_member_name(name)
+
     @classmethod
     def _is_valid_member_name(cls, name: str) -> bool:
         """Validate that a string is a plausible board member name.
@@ -1714,15 +1885,20 @@ class HybridExtractor:
             matched = False
             for rule_item in rule_result.agenda_items:
                 if self._items_match(rule_item, llm_item):
-                    # Upgrade with LLM data
-                    if llm_item.has_vote and llm_item.vote:
+                    # Upgrade with LLM data (P5: guard against vote=None)
+                    if llm_item.has_vote and getattr(llm_item, 'vote', None) is not None:
                         rule_item.has_vote = True
-                        rule_item.vote_type = llm_item.vote.vote_type
-                        rule_item.result = llm_item.vote.result
-                        rule_item.is_unanimous = llm_item.vote.is_unanimous
-                        rule_item.votes_for = llm_item.vote.votes_for
-                        rule_item.votes_against = llm_item.vote.votes_against
-                        if llm_item.vote.individual_votes:
+                        if llm_item.vote.vote_type:
+                            rule_item.vote_type = llm_item.vote.vote_type
+                        if llm_item.vote.result:
+                            rule_item.result = llm_item.vote.result
+                        if llm_item.vote.is_unanimous is not None:
+                            rule_item.is_unanimous = llm_item.vote.is_unanimous
+                        if llm_item.vote.votes_for is not None:
+                            rule_item.votes_for = llm_item.vote.votes_for
+                        if llm_item.vote.votes_against is not None:
+                            rule_item.votes_against = llm_item.vote.votes_against
+                        if getattr(llm_item.vote, 'individual_votes', None):
                             rule_item.individual_votes = [
                                 {"member_name": iv.member_name, "member_vote": iv.member_vote}
                                 for iv in llm_item.vote.individual_votes

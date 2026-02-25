@@ -1,0 +1,65 @@
+# Extraction Configuration
+# ========================
+# Configurable lists and thresholds used by the rule-based extraction engine.
+# Edit this file to adjust extraction behavior without modifying code.
+
+# Items whose titles contain any of these strings (case-insensitive) will never
+# be assigned a vote record. Used to strip false positives from procedural items.
+non_vote_titles:
+  - "MEETING OPENING"
+  - "CALL TO ORDER"
+  - "PLEDGE OF ALLEGIANCE"
+  - "MOMENT OF SILENCE"
+  - "ADJOURNMENT"
+  - "RECESS"
+  - "INVOCATION"
+
+# Valid item categories recognized by the system.
+# Must stay in sync with CATEGORY_RULES keys in rule_engine.py.
+valid_categories:
+  - personnel
+  - budget_finance
+  - curriculum_instruction
+  - facilities
+  - policy
+  - student_affairs
+  - community_relations
+  - consent_agenda
+  - technology
+  - safety_security
+  - dei_equity
+  - special_education
+  - procedural
+  - admin_operations
+  - other
+
+# Confidence promotion thresholds
+confidence:
+  # Minimum individual votes to auto-promote to "high" confidence
+  high_min_individual_votes: 3
+  # Minimum individual votes to promote from "low" to "medium"
+  medium_min_individual_votes: 1
+
+# Valid vote types recognized during extraction
+valid_vote_types:
+  - roll_call
+  - voice
+  - unanimous_consent
+  - show_of_hands
+
+# Valid vote results
+valid_results:
+  - passed
+  - failed
+  - tabled
+  - withdrawn
+  - amended_and_passed
+
+# Valid individual member vote values
+# Note: "yes" and "no" must be quoted — unquoted they parse as YAML booleans
+valid_member_votes:
+  - "yes"
+  - "no"
+  - "abstain"
+  - "absent"
+  - "recused"

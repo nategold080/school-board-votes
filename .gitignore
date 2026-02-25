@@ -5,10 +5,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Data (too large for git)
+# Data (raw files too large for git)
 data/raw_minutes/
-data/database.sqlite
 data/extracted/
+# NOTE: data/database.sqlite is tracked for Railway deployment
 
 # Logs
 *.log

@@ -180,8 +180,8 @@ class BoardDocsScraper(BaseScraper):
                 elif "BD-GetAgendaItem" in url:
                     body = await response.text()
                     items_html.append(body)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Error capturing response from {url}: {e}")
 
         page.on("response", capture_response)
 
@@ -196,18 +196,19 @@ class BoardDocsScraper(BaseScraper):
                 try:
                     await elem.click()
                     await page.wait_for_timeout(800)
-                except:
+                except Exception as e:
+                    logger.debug(f"Error clicking agenda item: {e}")
                     continue
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"Error querying agenda items: {e}")
 
         # Get the visible page text as well
         try:
             visible = await page.inner_text("#agenda-content, #wrap-agenda, .agenda-container, body")
             if visible:
                 text_parts.append(visible)
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"Error getting visible page text: {e}")
 
         # Parse agenda HTML
         if agenda_html:

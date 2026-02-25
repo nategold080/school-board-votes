@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 VALID_CATEGORIES = {
     "personnel", "budget_finance", "curriculum_instruction", "facilities",
     "policy", "student_affairs", "community_relations", "consent_agenda",
-    "technology", "safety_security", "dei_equity", "special_education", "other"
+    "technology", "safety_security", "dei_equity", "special_education",
+    "procedural", "admin_operations", "other"
 }
 
 VALID_VOTE_TYPES = {"roll_call", "voice", "unanimous_consent", "show_of_hands"}

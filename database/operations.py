@@ -1,11 +1,41 @@
 """CRUD operations for the School Board Votes database."""
 
+import re
 import json
-from datetime import date, datetime
-from typing import Optional
+from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, Integer
 from .models import District, Meeting, AgendaItem, Vote, IndividualVote, BoardMember
+
+
+def normalize_member_name(name: str) -> str:
+    """Normalize a member name for consistent matching.
+
+    1. Strip titles: Dr., Mr., Mrs., Ms., Rev., Prof., Trustee, Member
+    2. Strip suffixes: Jr., Sr., III, II, IV, PhD, MD, DDS, Esq.
+    3. Remove single-letter middle initials: "Karen C Pack" -> "Karen Pack"
+    4. Title-case only ALL-CAPS names to avoid mangling "McDonald" etc.
+    """
+    if not name:
+        return name
+    # Strip leading titles
+    name = re.sub(r'^(?:Dr|Mr|Mrs|Ms|Rev|Prof|Trustee|Board\s+Member|Member)\.?\s+',
+                  '', name, flags=re.IGNORECASE)
+    # Strip trailing suffixes (credentials + generational)
+    name = re.sub(r',?\s+(?:Jr\.?|Sr\.?|III|II|IV|PhD|Ph\.D\.?|MD|M\.D\.?|'
+                  r'DDS|D\.D\.S\.?|Esq\.?|Ed\.D\.?|J\.D\.?)\s*$',
+                  '', name, flags=re.IGNORECASE)
+    # Remove single-letter middle initials (with or without period):
+    # "Karen C Pack" -> "Karen Pack", "John A. Smith" -> "John Smith"
+    name = re.sub(r'\s+[A-Z]\.?\s+', ' ', name)
+    # Normalize whitespace
+    name = ' '.join(name.split())
+    name = name.strip()
+    # Title-case only ALL-CAPS names (e.g., "KAREN PACK" -> "Karen Pack")
+    # but preserve mixed-case names like "McDonald", "O'Brien", "DeVos"
+    if name and name == name.upper() and len(name) > 3:
+        name = name.title()
+    return name
 
 
 class DatabaseOperations:
@@ -95,6 +125,10 @@ class DatabaseOperations:
                  votes_for: int = None, votes_against: int = None,
                  votes_abstain: int = None, is_unanimous: bool = False,
                  confidence: str = None) -> Vote:
+        if motion_maker:
+            motion_maker = normalize_member_name(motion_maker)
+        if motion_seconder:
+            motion_seconder = normalize_member_name(motion_seconder)
         vote = Vote(
             item_id=item_id, motion_text=motion_text,
             motion_maker=motion_maker, motion_seconder=motion_seconder,
@@ -109,6 +143,7 @@ class DatabaseOperations:
 
     def add_individual_vote(self, vote_id: int, member_name: str,
                             member_vote: str) -> IndividualVote:
+        member_name = normalize_member_name(member_name)
         iv = IndividualVote(
             vote_id=vote_id, member_name=member_name, member_vote=member_vote
         )
@@ -120,9 +155,11 @@ class DatabaseOperations:
 
     def upsert_board_member(self, district_id: str, member_name: str,
                             role: str = None, seen_date: date = None) -> BoardMember:
+        member_name = normalize_member_name(member_name)
+        # Case-insensitive lookup to match records stored before title-case normalization
         member = (self.session.query(BoardMember)
                   .filter(and_(BoardMember.district_id == district_id,
-                               BoardMember.member_name == member_name))
+                               func.lower(BoardMember.member_name) == member_name.lower()))
                   .first())
         if member:
             if role:

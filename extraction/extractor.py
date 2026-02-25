@@ -33,6 +33,7 @@ class ExtractionPipeline:
     def _call_llm(self, system_prompt: str, user_prompt: str,
                   model: str, max_tokens: int = 4096) -> Optional[dict]:
         """Call the OpenAI API and parse JSON response."""
+        content = None  # P6: Initialize before try block to avoid NameError
         try:
             response = self.client.chat.completions.create(
                 model=model,
@@ -57,7 +58,9 @@ class ExtractionPipeline:
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {e}")
             # Try to extract JSON from the response
-            return self._extract_json(content)
+            if content:
+                return self._extract_json(content)
+            return None
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             return None

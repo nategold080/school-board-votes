@@ -14,14 +14,14 @@ The data is trapped in JavaScript-rendered portals, scattered across thousands o
 
 | Metric | Count |
 |--------|-------|
-| Districts | 150 |
+| Active districts | 130 |
 | States | 20 |
 | Meetings analyzed | 1,634 |
-| Agenda items | 20,859 |
-| Votes extracted | 5,923 |
-| Individual roll-call records | 11,746 |
-| Contested (non-unanimous) votes | 240 |
-| Board members identified | 574 |
+| Agenda items | 20,506 |
+| Votes extracted | 5,790 |
+| Individual roll-call records | 11,366 |
+| Contested (non-unanimous) votes | 181 |
+| Board members identified | 414 |
 | LLM API cost | $0.00 |
 
 ## Architecture
@@ -123,7 +123,7 @@ A post-processing step recalculates unanimity from actual individual vote data, 
 
 ```
 school-board-votes/
-  config/            Settings, district list (150 districts in districts.json)
+  config/            Settings, district list (130 active districts in districts.json)
   database/          SQLAlchemy models (6 tables), CRUD operations, analytics queries
   scraper/           Playwright BoardDocs scraper + PDF/HTML scrapers
   extraction/        Rule engine (15 categories, minutes parser, vote detection)
@@ -137,12 +137,12 @@ school-board-votes/
 ## Database Schema
 
 ```sql
-districts         -- 150 districts, NCES IDs, state, enrollment, platform
+districts         -- 130 active districts, NCES IDs, state, enrollment, platform
 meetings          -- 1,634 meetings, dates, attendance, raw text
-agenda_items      -- 20,859 items, categorized into 15 policy categories
-votes             -- 5,923 formal votes, results, counts, confidence
-individual_votes  -- 11,746 per-member roll-call records
-board_members     -- 574 board member names, roles, first/last seen dates
+agenda_items      -- 20,506 items, categorized into 15 policy categories
+votes             -- 5,790 formal votes, results, counts, confidence
+individual_votes  -- 11,366 per-member roll-call records
+board_members     -- 414 board member names, roles, first/last seen dates
 ```
 
 ## Setup
@@ -186,9 +186,10 @@ Six interactive pages:
 - **Context boundaries**: Minutes parser bounds each motion's context window by adjacent vote blocks to prevent cross-contamination
 
 ### Known Limitations
-- **Minutes availability**: ~52% of districts have minutes published on BoardDocs (others are agenda-only)
+- **Minutes availability**: ~55% of active districts have minutes published on BoardDocs (others are agenda-only)
 - **Format variations**: Some districts use non-standard vote formatting that current patterns don't capture
-- **"Other" category**: 18.2% of items remain uncategorized (mostly "Motion by [Name]" items from minutes with uninformative titles)
+- **"Other" category**: ~12% of voted items remain uncategorized (mostly "Motion by [Name]" items from minutes with uninformative titles)
+- **Unanimity definition**: Abstentions (e.g., 8-0-1) are treated as unanimous since no opposition was recorded
 - **Snapshot data**: Point-in-time scrape, not continuously updated (though the infrastructure supports scheduling)
 
 ## Technology Stack
@@ -200,6 +201,28 @@ Six interactive pages:
 - **Plotly** for data visualization
 - **BeautifulSoup** for HTML parsing of minutes content
 - **OpenAI API** (optional, unused in production — reserved for LLM fallback)
+
+## Updating Data
+
+The system supports incremental updates. To refresh data for new meetings:
+
+```bash
+# Re-scrape all districts (only fetches meetings not already saved)
+python3 scripts/scrape_all.py --max-meetings 12 --months-back 6
+
+# Re-scrape a specific state
+python3 scripts/run_scraper.py --state NY
+
+# Re-run extraction on newly scraped meetings
+python3 scripts/run_extraction.py --no-llm
+
+# Re-run extraction for a specific state
+python3 scripts/run_extraction.py --state CA --no-llm
+```
+
+**How incremental works:** The scraper saves raw text files per meeting (one file per meeting date per district). The extraction pipeline processes all raw text files for each district. To avoid duplicate database entries, clear existing meeting data before re-extracting, or check for existing meetings by date before inserting.
+
+**Recommended schedule:** Monthly re-scrape captures most regular board meetings (held monthly or biweekly). The full pipeline (scrape + extract for all districts) takes approximately 2-3 hours due to Playwright browser automation delays.
 
 ## Next Steps
 

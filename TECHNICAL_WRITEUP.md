@@ -14,7 +14,7 @@ BoardDocs (go.boarddocs.com) is the dominant platform for school board meeting m
 
 **Discovery**: BoardDocs exposes a public SEO endpoint (`BD-GETMeetingsListForSEO`) that returns meeting lists as JSON without authentication. Meeting content, however, requires a JavaScript-rendered browser session.
 
-**Scraping strategy**: Use the SEO endpoint for discovery (fast, no browser needed), then Playwright for content extraction (one browser context shared across all districts). This processes 150 districts in ~4-6 hours.
+**Scraping strategy**: Use the SEO endpoint for discovery (fast, no browser needed), then Playwright for content extraction (one browser context shared across all districts). This processes 130+ districts in ~4-6 hours.
 
 ### The Breakthrough: Minutes Capture
 
@@ -28,12 +28,12 @@ Most prior attempts at scraping BoardDocs only captured agendas. Our scraper det
 This is what unlocks individual vote records — transforming the system from a catalog of agenda items into a genuine voting database.
 
 **Implementation details:**
-1. After loading a meeting page, the scraper looks for a minutes link: `a:has-text("Minutes"):not(:has-text("Approval"))`
+1. After loading a meeting page, the scraper looks for a minutes link: `a:has-text("Minutes"):not(:has-text("Approval")):not(:has-text("Approve"))`
 2. If found, it clicks the link and waits 4 seconds for AJAX responses
 3. It intercepts any `BD-GetMinutes` API calls
 4. The minutes body text is appended to the output file under a `MINUTES TEXT:` marker
 
-About 37% of scraped districts have minutes published on BoardDocs. Each district with minutes yields 5-9 individual vote records per motion, creating the core of the voting record database.
+About 55% of scraped districts have minutes published on BoardDocs. Each district with minutes yields 5-9 individual vote records per motion, creating the core of the voting record database.
 
 ### The Extraction Problem
 
@@ -89,7 +89,7 @@ An optional LLM fallback exists for genuinely ambiguous cases but has not been n
                     └──────────┬──────────┘  (boundary-aware: stops at MINUTES TEXT)
                                │
                     ┌──────────▼──────────┐
-                    │ Category Classifier  │  15 categories, 150+ regex patterns
+                    │ Category Classifier  │  15 categories, 200+ regex patterns
                     └──────────┬──────────┘  prefix stripping, scoring
                                │
                     ┌──────────▼──────────┐
@@ -133,7 +133,7 @@ An optional LLM fallback exists for genuinely ambiguous cases but has not been n
 
 The classifier strips common prefixes ("A.", "B.", "Consent - ") and suffixes ("*(PUBLIC CANNOT...)") before matching, then scores each category and selects the highest. This handles variations like "PERSONNEL AFFAIRS - PERSONNEL CHANGES" and "Human Resource Items" both mapping to `personnel`.
 
-The "other" category — items that don't match any pattern — has been driven below 20% through iterative pattern expansion. Generic section headers ("ACTION ITEMS", "UNFINISHED BUSINESS") are detected and classified as procedural or admin rather than polluting the "other" bucket.
+The "other" category — items that don't match any pattern — has been driven to 11.6% through iterative pattern expansion. Generic section headers ("ACTION ITEMS", "UNFINISHED BUSINESS") are detected and classified as procedural or admin rather than polluting the "other" bucket.
 
 #### Minutes Vote Parsing
 
@@ -183,13 +183,14 @@ This catches edge cases where agenda text says "unanimous" but minutes reveal di
 
 | Metric | Count |
 |--------|-------|
-| Districts | 150 |
-| States | 20 (NY, TX, CA, FL, VA, OH, CO, WI, NC, GA, MA, IL, PA, WA, AZ, MI, MN, NJ, OR, MD) |
-| Meetings | 1,600+ |
-| Agenda items | 7,000+ |
-| Votes extracted | 3,000+ |
-| Individual vote records | 1,000+ |
-| Board members identified | 200+ |
+| Active districts | 130 |
+| States | 20 (AZ, CA, CO, CT, FL, GA, IA, ID, IL, IN, KS, MI, NC, NY, OH, PA, TX, VA, WA, WI) |
+| Meetings | 1,634 |
+| Agenda items | 20,506 |
+| Votes extracted | 5,790 |
+| Individual vote records | 11,366 |
+| Board members identified | 414 |
+| Contested (non-unanimous) votes | 181 |
 | LLM API calls | 0 |
 | API cost | $0.00 |
 | Extraction time | <2 seconds for full dataset |
@@ -200,9 +201,9 @@ This catches edge cases where agenda text says "unanimous" but minutes reveal di
 
 2. **Contested votes are rare and revealing**: The ~5% of non-unanimous votes are where policy dynamics become visible. They tend to cluster in specific categories (personnel, budget, policy) rather than being evenly distributed.
 
-3. **Minutes availability varies**: ~37% of BoardDocs districts have minutes published. These districts disproportionately contribute the most valuable data (individual vote records).
+3. **Minutes availability varies**: ~55% of active BoardDocs districts have minutes published. These districts disproportionately contribute the most valuable data (individual vote records).
 
-4. **Category distribution**: After pattern optimization, the "other" bucket is under 20%. The largest categories are consent agenda (~30%), procedural (~15%), budget/finance (~10%), and personnel (~8%).
+4. **Category distribution**: After pattern optimization, the "other" bucket is 11.6%. The largest categories are admin/operations (~26%), consent agenda (~24%), procedural (~16%), budget/finance (~7%), and personnel (~5%).
 
 ## Technology Stack
 

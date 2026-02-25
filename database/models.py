@@ -5,7 +5,7 @@ from sqlalchemy import (
     ForeignKey, create_engine, Index
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
-from datetime import datetime
+from datetime import datetime, timezone
 
 Base = declarative_base()
 
@@ -20,6 +20,7 @@ class District(Base):
     county = Column(String)
     minutes_url = Column(String)
     platform = Column(String)  # boarddocs, pdf, html, etc.
+    status = Column(String, default="active")  # active/inactive
 
     meetings = relationship("Meeting", back_populates="district", cascade="all, delete-orphan")
     board_members = relationship("BoardMember", back_populates="district", cascade="all, delete-orphan")
@@ -41,7 +42,7 @@ class Meeting(Base):
     members_present = Column(Text)  # JSON list
     members_absent = Column(Text)   # JSON list
     extraction_confidence = Column(String)  # high/medium/low
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     district = relationship("District", back_populates="meetings")
     agenda_items = relationship("AgendaItem", back_populates="meeting", cascade="all, delete-orphan")

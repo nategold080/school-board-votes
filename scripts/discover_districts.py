@@ -149,8 +149,8 @@ def validate_org_code(state_code, org_code, timeout=10):
             data = resp.json()
             if isinstance(data, list) and len(data) > 0:
                 return True, len(data)
-    except:
-        pass
+    except Exception as e:
+        logger.debug(f"Validation failed for {state_code}/{org_code}: {e}")
     return False, 0
 
 

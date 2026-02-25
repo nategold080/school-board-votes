@@ -126,27 +126,35 @@ def save_meeting_to_db(db_ops: DatabaseOperations, district_id: str,
 
 
 def run_extraction(districts: list[dict], db_ops: DatabaseOperations,
-                   extractor: HybridExtractor):
-    """Run extraction on all districts."""
+                   extractor: HybridExtractor, dry_run: bool = False):
+    """Run extraction on all districts.
+
+    If dry_run=True, runs extraction and prints results but does not
+    write to the database or save JSON files.
+    """
     total_votes = 0
     total_meetings = 0
     total_items = 0
+
+    if dry_run:
+        logger.info("*** DRY RUN — no database writes or file saves ***")
 
     for i, district in enumerate(districts, 1):
         district_id = district["district_id"]
         name = district["district_name"]
         logger.info(f"\n[{i}/{len(districts)}] Extracting: {name}")
 
-        # Ensure district exists in DB
-        db_ops.upsert_district(
-            district_id=district_id,
-            district_name=name,
-            state=district["state"],
-            enrollment=district.get("enrollment"),
-            county=district.get("county"),
-            minutes_url=district.get("minutes_url"),
-            platform=district.get("platform"),
-        )
+        if not dry_run:
+            # Ensure district exists in DB
+            db_ops.upsert_district(
+                district_id=district_id,
+                district_name=name,
+                state=district["state"],
+                enrollment=district.get("enrollment"),
+                county=district.get("county"),
+                minutes_url=district.get("minutes_url"),
+                platform=district.get("platform"),
+            )
 
         # Load raw minutes
         raw_minutes = load_raw_minutes(district_id)
@@ -169,29 +177,34 @@ def run_extraction(districts: list[dict], db_ops: DatabaseOperations,
                     logger.warning(f"    No agenda items found")
                     continue
 
-                # Save to database
-                vote_count = save_meeting_to_db(
-                    db_ops, district_id, meeting,
-                    minutes_data["text"], minutes_data["date_str"]
-                )
-
+                vote_count = sum(1 for item in meeting.agenda_items if item.has_vote)
+                item_count = len(meeting.agenda_items)
                 total_votes += vote_count
                 total_meetings += 1
-                total_items += len(meeting.agenda_items)
+                total_items += item_count
                 district_votes += vote_count
-                db_ops.commit()
 
-                # Save extraction JSON
-                extraction_file = EXTRACTED_DIR / f"{district_id}_{minutes_data['date_str']}.json"
-                with open(extraction_file, "w") as f:
-                    json.dump(asdict(meeting), f, indent=2, default=str)
+                if dry_run:
+                    logger.info(f"    -> {item_count} items, {vote_count} votes [{meeting.extraction_method}] (dry run)")
+                else:
+                    # Save to database
+                    save_meeting_to_db(
+                        db_ops, district_id, meeting,
+                        minutes_data["text"], minutes_data["date_str"]
+                    )
+                    db_ops.commit()
 
-                item_count = len(meeting.agenda_items)
-                logger.info(f"    -> {item_count} items, {vote_count} votes [{meeting.extraction_method}]")
+                    # Save extraction JSON
+                    extraction_file = EXTRACTED_DIR / f"{district_id}_{minutes_data['date_str']}.json"
+                    with open(extraction_file, "w") as f:
+                        json.dump(asdict(meeting), f, indent=2, default=str)
+
+                    logger.info(f"    -> {item_count} items, {vote_count} votes [{meeting.extraction_method}]")
 
             except Exception as e:
                 logger.error(f"    Failed: {e}", exc_info=True)
-                db_ops.rollback()
+                if not dry_run:
+                    db_ops.rollback()
                 continue
 
         logger.info(f"  District total: {district_votes} votes from {len(raw_minutes)} meetings")
@@ -209,6 +222,8 @@ def main():
     parser.add_argument("--llm-threshold", type=str, default="low",
                         choices=["none", "low", "medium"],
                         help="Confidence threshold for LLM fallback")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview extraction results without writing to DB or saving files")
     args = parser.parse_args()
 
     # Initialize database
@@ -242,9 +257,12 @@ def main():
     if args.limit:
         districts = districts[:args.limit]
 
-    logger.info(f"Processing {len(districts)} districts (LLM threshold: {threshold})")
+    logger.info(f"Processing {len(districts)} districts (LLM threshold: {threshold})"
+                + (" [DRY RUN]" if args.dry_run else ""))
 
-    total_meetings, total_votes, total_items = run_extraction(districts, db_ops, extractor)
+    total_meetings, total_votes, total_items = run_extraction(
+        districts, db_ops, extractor, dry_run=args.dry_run
+    )
 
     stats = extractor.get_stats()
     print(f"\n{'='*60}")

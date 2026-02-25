@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
+import re
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -55,6 +56,48 @@ CATEGORY_LABELS = {
 
 ALL_CATEGORIES = list(CATEGORY_LABELS.keys())
 
+# ── Name validation ───────────────────────────────────────────────────────
+
+_BAD_NAME_START = [
+    "and ", "second by ", "board member", "chairperson", "school board",
+    "student achievement", "human resources", "attorney", "as presented",
+    "real property", "for the purpose", "teaching assistant",
+    "volunteer assistant", "varsity", "junior varsity", "head coach",
+    "assistant coach", "co for ", "members ",
+]
+
+_BAD_NAME_CONTAINS = [
+    "board member", "as presented", "purpose of", "property negotiator",
+    "members are all", "second by", "student board member",
+]
+
+
+def is_valid_member_name(name: str) -> bool:
+    """Return True if *name* looks like a real person's name."""
+    if not name or len(name.strip()) < 4:
+        return False
+    n = name.strip()
+    if n.endswith("."):
+        return False
+    if " " not in n:
+        return False
+    low = n.lower()
+    if low == "vice chair" or low == "teacher":
+        return False
+    for pat in _BAD_NAME_START:
+        if low.startswith(pat):
+            return False
+    for pat in _BAD_NAME_CONTAINS:
+        if pat in low:
+            return False
+    if "(" in n or ")" in n:
+        return False
+    if low.endswith(" and"):
+        return False
+    return True
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────
 
 def format_category(cat: str) -> str:
     return CATEGORY_LABELS.get(cat, cat.replace("_", " ").title() if cat else "Other")
@@ -73,6 +116,22 @@ def category_selectbox(label="Category", key=None, include_all=True):
     idx = st.selectbox(label, range(len(options)), format_func=lambda i: display[i], key=key)
     val = options[idx]
     return val if val != "All" else None
+
+
+def completeness_score(vote, item):
+    """Score how complete a contested vote record is (higher = more detail)."""
+    score = 0
+    if vote.individual_votes:
+        score += 3 + min(len(vote.individual_votes), 10)
+    if vote.motion_text:
+        score += 2
+    if item.item_category and item.item_category != "other":
+        score += 1
+    if vote.votes_for is not None and vote.votes_against is not None:
+        score += 1
+    if vote.motion_maker or vote.motion_seconder:
+        score += 1
+    return score
 
 
 # ── Page config & CSS ─────────────────────────────────────────────────────
@@ -107,10 +166,10 @@ st.markdown("""
     margin-bottom: 1.2rem;
 }
 
-/* KPI cards */
+/* KPI cards — dark theme */
 [data-testid="stMetric"] {
-    background: #F8FAFC;
-    border: 1px solid #E2E8F0;
+    background: #1B2A4A;
+    border: 1px solid #334155;
     border-radius: 10px;
     padding: 16px 20px;
 }
@@ -118,7 +177,7 @@ st.markdown("""
     font-family: 'Inter', sans-serif;
     font-size: 0.8rem !important;
     font-weight: 500;
-    color: #64748B !important;
+    color: #94A3B8 !important;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -126,7 +185,7 @@ st.markdown("""
     font-family: 'Inter', sans-serif;
     font-size: 1.8rem !important;
     font-weight: 700;
-    color: #1B2A4A !important;
+    color: #E2E8F0 !important;
 }
 
 /* Section headers */
@@ -138,7 +197,7 @@ st.markdown("""
     margin-top: 0.8rem;
     margin-bottom: 0.4rem;
     padding-bottom: 0.3rem;
-    border-bottom: 2px solid #E2E8F0;
+    border-bottom: 2px solid #334155;
 }
 
 /* Table styling */
@@ -161,8 +220,12 @@ iframe[title="streamlit_badge"] { display: none !important; }
 /* Sidebar */
 [data-testid="stSidebar"] { background: #1B2A4A; }
 
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] { gap: 8px; }
+.stTabs [data-baseweb="tab"] { font-family: 'Inter', sans-serif; font-weight: 500; }
+
 div[data-testid="stDataFrame"] div[class*="glideDataEditor"] {
-    border: 1px solid #E2E8F0;
+    border: 1px solid #334155;
     border-radius: 8px;
 }
 </style>
@@ -184,7 +247,7 @@ def main():
     db_ops = DatabaseOperations(session)
     analytics = VoteAnalytics(session)
 
-    # Sidebar
+    # Sidebar — branding & about
     st.sidebar.markdown(
         '<p class="main-title" style="font-size:1.4rem;">School Board Vote Tracker</p>',
         unsafe_allow_html=True,
@@ -196,46 +259,38 @@ def main():
         unsafe_allow_html=True,
     )
     st.sidebar.divider()
-    page = st.sidebar.radio(
-        "Navigate",
-        ["Dashboard", "Contested Votes", "District Browser",
-         "Vote Search", "Member Profiles", "Trends"],
-        index=0,
+
+    stats = db_ops.get_vote_statistics()
+    st.sidebar.markdown(
+        f"**{stats['total_districts']:,}** districts &bull; "
+        f"**{stats['total_votes']:,}** votes &bull; "
+        f"**{stats['contested_votes']:,}** contested"
     )
+    st.sidebar.markdown("")
 
-    if page == "Dashboard":
-        render_dashboard(db_ops, analytics, session)
-    elif page == "Contested Votes":
-        render_contested_votes(db_ops, session)
-    elif page == "District Browser":
-        render_district_browser(db_ops, session)
-    elif page == "Vote Search":
-        render_vote_search(db_ops)
-    elif page == "Member Profiles":
-        render_member_profiles(analytics, session)
-    elif page == "Trends":
-        render_trends(analytics)
+    with st.sidebar.expander("About This Data", expanded=False):
+        st.markdown(
+            "This dashboard presents the first structured database of school board voting "
+            "records. Data is extracted from public BoardDocs meeting minutes using a "
+            "zero-cost rule engine — **no LLM API calls required**.\n\n"
+            "Each vote receives a confidence score (high/medium/low) based on extraction "
+            "quality. Use the confidence filter on the Contested Votes tab to focus on "
+            "the most reliable records."
+        )
 
-    # Footer (all pages)
-    st.markdown("")
-    st.divider()
-    st.markdown(
-        "<div style='text-align: center; color: #94A3B8; font-size: 0.8rem; padding: 8px 0;'>"
-        "School Board Vote Tracker &bull; "
-        "Data extracted from public BoardDocs minutes using a zero-cost rule engine &bull; "
-        "No LLM API calls required"
-        "<br>"
-        "Built by <strong>Nathan Goldberg</strong> &nbsp;|&nbsp; "
-        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3; text-decoration: none;'>nathanmauricegoldberg@gmail.com</a> &nbsp;|&nbsp; "
-        "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' style='color: #0984E3; text-decoration: none;'>LinkedIn</a>"
+    st.sidebar.markdown("")
+    st.sidebar.markdown(
+        "<div style='font-size: 0.8rem; color: #94A3B8;'>"
+        "Built by <strong>Nathan Goldberg</strong><br>"
+        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3;'>Email</a>"
+        " &nbsp;|&nbsp; "
+        "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' "
+        "style='color: #0984E3;'>LinkedIn</a>"
         "</div>",
         unsafe_allow_html=True,
     )
 
-
-# ── Dashboard page ────────────────────────────────────────────────────────
-
-def render_dashboard(db_ops, analytics, session):
+    # Main area — title + tabs
     st.markdown(
         '<p class="main-title">School Board Vote Tracker</p>',
         unsafe_allow_html=True,
@@ -249,12 +304,53 @@ def render_dashboard(db_ops, analytics, session):
         unsafe_allow_html=True,
     )
 
-    stats = db_ops.get_vote_statistics()
+    tabs = st.tabs([
+        "Overview", "Contested Votes", "Vote Search",
+        "Districts", "Board Members", "Trends",
+    ])
+
+    with tabs[0]:
+        render_overview(db_ops, analytics, session, stats)
+    with tabs[1]:
+        render_contested_votes(db_ops, session)
+    with tabs[2]:
+        render_vote_search(db_ops)
+    with tabs[3]:
+        render_district_browser(db_ops, session)
+    with tabs[4]:
+        render_member_profiles(analytics, session)
+    with tabs[5]:
+        render_trends(analytics)
+
+    # Footer
+    st.markdown("")
+    st.divider()
+    st.markdown(
+        "<div style='text-align: center; color: #94A3B8; font-size: 0.8rem; padding: 8px 0;'>"
+        "School Board Vote Tracker &bull; "
+        "Data extracted from public BoardDocs minutes using a zero-cost rule engine &bull; "
+        "No LLM API calls required"
+        "<br>"
+        "Built by <strong>Nathan Goldberg</strong> &nbsp;|&nbsp; "
+        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3; "
+        "text-decoration: none;'>nathanmauricegoldberg@gmail.com</a> &nbsp;|&nbsp; "
+        "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' "
+        "style='color: #0984E3; text-decoration: none;'>LinkedIn</a>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+# ── Overview tab ──────────────────────────────────────────────────────────
+
+def render_overview(db_ops, analytics, session, stats):
     states = analytics.votes_by_state()
     state_count = len(set(s["state"] for s in states)) if states else 0
-    failed_count = session.query(func.count(Vote.vote_id)).filter(Vote.result == "failed").scalar() or 0
+    failed_count = (
+        session.query(func.count(Vote.vote_id))
+        .filter(Vote.result == "failed").scalar() or 0
+    )
 
-    # KPI Row
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Districts", f"{stats['total_districts']:,}")
     c2.metric("States", f"{state_count}")
@@ -305,20 +401,22 @@ def render_dashboard(db_ops, analytics, session):
     # Top dissenters
     section_header("Most Frequent Dissenters")
     st.caption("Board members who most often vote 'No' on motions (minimum 3 recorded votes).")
-    dissenters = analytics.top_dissenters(limit=10)
+    dissenters = analytics.top_dissenters(limit=15)
     if dissenters:
-        diss_df = pd.DataFrame(dissenters)
-        diss_df["dissent_rate"] = diss_df["dissent_rate"].apply(lambda x: f"{x:.1%}")
-        st.dataframe(
-            diss_df, use_container_width=True, hide_index=True,
-            column_config={
-                "member_name": "Board Member",
-                "total_votes": "Total Votes",
-                "no_votes": "No Votes",
-                "abstain_votes": "Abstentions",
-                "dissent_rate": "Dissent Rate",
-            },
-        )
+        dissenters = [d for d in dissenters if is_valid_member_name(d["member_name"])][:10]
+        if dissenters:
+            diss_df = pd.DataFrame(dissenters)
+            diss_df["dissent_rate"] = diss_df["dissent_rate"].apply(lambda x: f"{x:.1%}")
+            st.dataframe(
+                diss_df, use_container_width=True, hide_index=True,
+                column_config={
+                    "member_name": "Board Member",
+                    "total_votes": "Total Votes",
+                    "no_votes": "No Votes",
+                    "abstain_votes": "Abstentions",
+                    "dissent_rate": "Dissent Rate",
+                },
+            )
 
     # Data quality
     st.markdown("")
@@ -384,8 +482,8 @@ minutes published through BoardDocs:
 ### What Makes This Unique
 
 - **First structured dataset** of school board voting records at this scale
-- **Individual roll-call records**: 11,000+ named votes showing exactly how each board
-  member voted
+- **Individual roll-call records**: {n_individual:,}+ named votes showing exactly how each
+  board member voted
 - **Zero-cost extraction**: rule engine replaces LLM calls entirely
 - **Contested vote detection**: identifies the {n_contested} motions where board members
   disagreed
@@ -394,74 +492,88 @@ minutes published through BoardDocs:
 
 - Coverage is limited to districts using BoardDocs (the dominant platform)
 - Some districts publish only agenda text, not full minutes with vote details
-- 16% of votes have "low" confidence extraction — use the confidence filter to focus
+- Some votes have "low" confidence extraction — use the confidence filter to focus
   on high-quality records
 """.format(
             n_districts=stats["total_districts"],
             n_states=state_count,
+            n_individual=stats["total_individual_votes"],
             n_contested=stats["contested_votes"],
         ))
 
 
-# ── Contested Votes page ──────────────────────────────────────────────────
+# ── Contested Votes tab ──────────────────────────────────────────────────
 
 def render_contested_votes(db_ops, session):
-    st.markdown(
-        '<p class="main-title">Contested Votes</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="main-subtitle">'
-        'Non-unanimous votes are where governance gets interesting. '
-        'These are the decisions where at least one board member disagreed.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
+    # Fetch all contested votes, then filter to those with individual records
+    all_results = db_ops.get_contested_votes(limit=1000)
+    all_results = [
+        (v, i, m, d) for v, i, m, d in all_results
+        if v.individual_votes and len(v.individual_votes) > 0
+    ]
 
-    total_contested = session.query(func.count(Vote.vote_id)).filter(Vote.is_unanimous == False).scalar() or 0
-    total_with_iv = (
-        session.query(func.count(Vote.vote_id.distinct()))
-        .join(IndividualVote, Vote.vote_id == IndividualVote.vote_id)
-        .filter(Vote.is_unanimous == False)
-        .scalar() or 0
-    )
-    failed_count = session.query(func.count(Vote.vote_id)).filter(Vote.result == "failed").scalar() or 0
+    total_count = len(all_results)
+    failed_count = sum(1 for v, i, m, d in all_results if v.result == "failed")
+    margins = [
+        abs(v.votes_for - v.votes_against)
+        for v, i, m, d in all_results
+        if v.votes_for is not None and v.votes_against is not None
+    ]
+    avg_margin = sum(margins) / len(margins) if margins else 0
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Contested Votes", f"{total_contested:,}")
-    c2.metric("With Named Roll Calls", f"{total_with_iv:,}")
-    c3.metric("Motions That Failed", f"{failed_count:,}")
+    c1.metric("Contested Votes with Roll Calls", f"{total_count:,}")
+    c2.metric("Motions That Failed", f"{failed_count:,}")
+    c3.metric("Avg. Vote Margin", f"{avg_margin:.1f}")
 
     st.markdown("")
 
     # Filters
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        state_filter = st.text_input("Filter by State", placeholder="e.g., TX, FL, NY", key="cv_state")
+        state_filter = st.text_input(
+            "Filter by State", placeholder="e.g., TX, FL, NY", key="cv_state"
+        )
     with col2:
         cat_val = category_selectbox("Category", key="cv_cat")
     with col3:
-        confidence_filter = st.selectbox("Confidence", ["All", "High Only", "High + Medium"], key="cv_conf")
+        confidence_filter = st.selectbox(
+            "Confidence", ["All", "High Only", "High + Medium"], key="cv_conf"
+        )
     with col4:
-        sort_by = st.selectbox("Sort by", ["Most Recent", "Closest Margin"])
+        sort_by = st.selectbox(
+            "Sort by", ["Most Detailed", "Most Recent", "Closest Margin"]
+        )
 
-    results = db_ops.get_contested_votes(
-        state=state_filter.upper().strip() if state_filter else None,
-        category=cat_val,
-    )
-
+    # Apply filters
+    results = list(all_results)
+    if state_filter:
+        sf = state_filter.upper().strip()
+        results = [(v, i, m, d) for v, i, m, d in results if d.state == sf]
+    if cat_val:
+        results = [(v, i, m, d) for v, i, m, d in results if i.item_category == cat_val]
     if confidence_filter == "High Only":
         results = [(v, i, m, d) for v, i, m, d in results if v.confidence == "high"]
     elif confidence_filter == "High + Medium":
-        results = [(v, i, m, d) for v, i, m, d in results if v.confidence in ("high", "medium")]
+        results = [
+            (v, i, m, d) for v, i, m, d in results
+            if v.confidence in ("high", "medium")
+        ]
 
-    if sort_by == "Closest Margin":
+    # Sort
+    if sort_by == "Most Recent":
+        results = sorted(results, key=lambda r: str(r[2].meeting_date or ""), reverse=True)
+    elif sort_by == "Closest Margin":
         def margin_key(r):
             v = r[0]
             if v.votes_for is not None and v.votes_against is not None:
                 return abs(v.votes_for - v.votes_against)
             return 999
         results = sorted(results, key=margin_key)
+    else:  # Most Detailed (default)
+        results = sorted(
+            results, key=lambda r: completeness_score(r[0], r[1]), reverse=True
+        )
 
     st.write(f"**{len(results)}** contested votes found")
 
@@ -471,7 +583,6 @@ def render_contested_votes(db_ops, session):
             margin = f" ({vote.votes_for}-{vote.votes_against})"
 
         icon = "FAILED" if vote.result == "failed" else "CONTESTED"
-        icon_color = "#FF7675" if vote.result == "failed" else "#FDCB6E"
         cat_label = format_category(item.item_category)
 
         with st.expander(
@@ -484,36 +595,32 @@ def render_contested_votes(db_ops, session):
                 st.write(f"**Motion:** {vote.motion_text or 'N/A'}")
                 st.write(f"**Result:** {vote.result.upper()}{margin}")
                 if vote.motion_maker or vote.motion_seconder:
-                    st.write(f"**Moved by:** {vote.motion_maker or '?'} / **Seconded by:** {vote.motion_seconder or '?'}")
+                    st.write(
+                        f"**Moved by:** {vote.motion_maker or '?'} / "
+                        f"**Seconded by:** {vote.motion_seconder or '?'}"
+                    )
             with col2:
-                if vote.individual_votes:
-                    yes_votes = [iv for iv in vote.individual_votes if iv.member_vote == "yes"]
-                    no_votes = [iv for iv in vote.individual_votes if iv.member_vote == "no"]
-                    abstains = [iv for iv in vote.individual_votes if iv.member_vote == "abstain"]
-                    if yes_votes:
-                        st.markdown("**Yes:** " + ", ".join(iv.member_name for iv in yes_votes))
-                    if no_votes:
-                        st.markdown("**No:** " + ", ".join(f"**{iv.member_name}**" for iv in no_votes))
-                    if abstains:
-                        st.markdown("**Abstain:** " + ", ".join(iv.member_name for iv in abstains))
-                else:
-                    st.caption("No individual vote records available.")
+                yes_votes = [iv for iv in vote.individual_votes if iv.member_vote == "yes"]
+                no_votes = [iv for iv in vote.individual_votes if iv.member_vote == "no"]
+                abstains = [iv for iv in vote.individual_votes if iv.member_vote == "abstain"]
+                if yes_votes:
+                    st.markdown(
+                        "**Yes:** " + ", ".join(iv.member_name for iv in yes_votes)
+                    )
+                if no_votes:
+                    st.markdown(
+                        "**No:** "
+                        + ", ".join(f"**{iv.member_name}**" for iv in no_votes)
+                    )
+                if abstains:
+                    st.markdown(
+                        "**Abstain:** " + ", ".join(iv.member_name for iv in abstains)
+                    )
 
 
-# ── District Browser page ─────────────────────────────────────────────────
+# ── District Browser tab ─────────────────────────────────────────────────
 
 def render_district_browser(db_ops, session):
-    st.markdown(
-        '<p class="main-title">District Browser</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="main-subtitle">'
-        'Explore meeting data and vote records for individual school districts.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
-
     districts = db_ops.get_all_districts()
     if not districts:
         st.warning("No districts in database.")
@@ -522,18 +629,24 @@ def render_district_browser(db_ops, session):
     col1, col2 = st.columns([1, 3])
     with col1:
         states = sorted(set(d.state for d in districts))
-        selected_state = st.selectbox("State", ["All"] + states)
-    filtered = districts if selected_state == "All" else [d for d in districts if d.state == selected_state]
+        selected_state = st.selectbox("State", ["All"] + states, key="db_state")
+    filtered = (
+        districts if selected_state == "All"
+        else [d for d in districts if d.state == selected_state]
+    )
     with col2:
         district_names = {d.district_name: d for d in filtered}
-        selected_name = st.selectbox("District", sorted(district_names.keys()))
+        selected_name = st.selectbox("District", sorted(district_names.keys()), key="db_district")
 
     if not selected_name:
         return
 
     district = district_names[selected_name]
 
-    meeting_count = session.query(func.count(Meeting.meeting_id)).filter(Meeting.district_id == district.district_id).scalar()
+    meeting_count = (
+        session.query(func.count(Meeting.meeting_id))
+        .filter(Meeting.district_id == district.district_id).scalar()
+    )
     vote_count = (
         session.query(func.count(Vote.vote_id))
         .join(AgendaItem, Vote.item_id == AgendaItem.item_id)
@@ -560,7 +673,9 @@ def render_district_browser(db_ops, session):
     section_header(f"Meetings ({len(meetings)})")
 
     for meeting in meetings:
-        with st.expander(f"{meeting.meeting_date} | {meeting.meeting_type.replace('_', ' ').title()}"):
+        with st.expander(
+            f"{meeting.meeting_date} | {meeting.meeting_type.replace('_', ' ').title()}"
+        ):
             if meeting.members_present:
                 try:
                     present = json.loads(meeting.members_present)
@@ -576,9 +691,11 @@ def render_district_browser(db_ops, session):
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-            items = (session.query(AgendaItem)
-                    .filter(AgendaItem.meeting_id == meeting.meeting_id)
-                    .all())
+            items = (
+                session.query(AgendaItem)
+                .filter(AgendaItem.meeting_id == meeting.meeting_id)
+                .all()
+            )
 
             for item in items:
                 cat_label = format_category(item.item_category)
@@ -589,8 +706,13 @@ def render_district_browser(db_ops, session):
                 )
                 if item.vote:
                     vote = item.vote
-                    unanimous = "Unanimous" if vote.is_unanimous else f"{vote.votes_for}-{vote.votes_against}"
-                    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;Result: **{vote.result.upper()}** ({unanimous})")
+                    unanimous = (
+                        "Unanimous" if vote.is_unanimous
+                        else f"{vote.votes_for}-{vote.votes_against}"
+                    )
+                    st.markdown(
+                        f"&nbsp;&nbsp;&nbsp;&nbsp;Result: **{vote.result.upper()}** ({unanimous})"
+                    )
                     if vote.individual_votes:
                         vote_strs = []
                         for iv in vote.individual_votes:
@@ -600,28 +722,22 @@ def render_district_browser(db_ops, session):
                                 vote_strs.append(f"**{iv.member_name}: No**")
                             else:
                                 vote_strs.append(f"{iv.member_name}: {iv.member_vote}")
-                        st.markdown("&nbsp;&nbsp;&nbsp;&nbsp;" + " | ".join(vote_strs))
+                        st.markdown(
+                            "&nbsp;&nbsp;&nbsp;&nbsp;" + " | ".join(vote_strs)
+                        )
 
 
-# ── Vote Search page ──────────────────────────────────────────────────────
+# ── Vote Search tab ──────────────────────────────────────────────────────
 
 def render_vote_search(db_ops):
-    st.markdown(
-        '<p class="main-title">Vote Search</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="main-subtitle">'
-        'Search across all districts for specific policy topics, keywords, or motion text.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
-
     col1, col2, col3 = st.columns([3, 1, 1])
     with col1:
-        keyword = st.text_input("Search keyword", placeholder="e.g., superintendent, budget, textbook, HVAC")
+        keyword = st.text_input(
+            "Search keyword",
+            placeholder="e.g., superintendent, budget, textbook, HVAC",
+        )
     with col2:
-        state_filter = st.text_input("State", placeholder="e.g., NY")
+        state_filter = st.text_input("State", placeholder="e.g., NY", key="vs_state")
     with col3:
         cat_val = category_selectbox("Category", key="vs_cat")
 
@@ -635,7 +751,9 @@ def render_vote_search(db_ops):
 
         for vote, item, meeting, district in results:
             cat_label = format_category(item.item_category)
-            conf_badge = {"high": "HIGH", "medium": "MED", "low": "LOW"}.get(vote.confidence or "low", "?")
+            conf_badge = {"high": "HIGH", "medium": "MED", "low": "LOW"}.get(
+                vote.confidence or "low", "?"
+            )
 
             with st.expander(
                 f"{district.district_name} ({district.state}) | {meeting.meeting_date} | "
@@ -644,39 +762,41 @@ def render_vote_search(db_ops):
                 st.write(f"**Category:** {cat_label}")
                 st.write(f"**Confidence:** {(vote.confidence or 'unknown').title()}")
                 st.write(f"**Motion:** {vote.motion_text or 'N/A'}")
-                unanimous = "Unanimous" if vote.is_unanimous else f"{vote.votes_for}-{vote.votes_against}"
+                unanimous = (
+                    "Unanimous" if vote.is_unanimous
+                    else f"{vote.votes_for}-{vote.votes_against}"
+                )
                 st.markdown(f"**Result:** {vote.result.upper()} ({unanimous})")
                 if vote.individual_votes:
                     st.write("**Individual Votes:**")
                     for iv in vote.individual_votes:
-                        marker = "Yes" if iv.member_vote == "yes" else f"**{iv.member_vote.upper()}**"
+                        marker = (
+                            "Yes" if iv.member_vote == "yes"
+                            else f"**{iv.member_vote.upper()}**"
+                        )
                         st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;{iv.member_name}: {marker}")
     else:
         st.info("Enter a keyword to search across all vote records.")
 
 
-# ── Member Profiles page ──────────────────────────────────────────────────
+# ── Board Members tab ────────────────────────────────────────────────────
 
 def render_member_profiles(analytics, session):
-    st.markdown(
-        '<p class="main-title">Board Member Profiles</p>',
-        unsafe_allow_html=True,
+    board_members = (
+        session.query(BoardMember, District.district_name, District.state)
+        .join(District, BoardMember.district_id == District.district_id)
+        .order_by(District.state, District.district_name, BoardMember.member_name)
+        .all()
     )
-    st.markdown(
-        '<p class="main-subtitle">'
-        'Explore individual board members and their voting records.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
-
-    board_members = (session.query(BoardMember, District.district_name, District.state)
-                     .join(District, BoardMember.district_id == District.district_id)
-                     .order_by(District.state, District.district_name, BoardMember.member_name)
-                     .all())
 
     if not board_members:
         st.warning("No board member records available.")
         return
+
+    # Filter out extraction noise
+    board_members = [
+        bm for bm in board_members if is_valid_member_name(bm.BoardMember.member_name)
+    ]
 
     total_members = len(board_members)
     districts_with_members = len(set(bm.BoardMember.district_id for bm in board_members))
@@ -687,127 +807,155 @@ def render_member_profiles(analytics, session):
     c2.metric("Across Districts", districts_with_members)
     c3.metric("In States", states_with_members)
 
-    role_map = {
-        "president": "President/Chair", "vice_president": "Vice President/Vice Chair",
-        "secretary": "Secretary/Clerk", "treasurer": "Treasurer",
-        "trustee": "Trustee", "member": "Member",
-    }
-
-    member_data = []
-    for bm in board_members:
-        member = bm.BoardMember
-        role_display = role_map.get(member.role, member.role or "Member")
-        member_data.append({
-            "Name": member.member_name,
-            "Role": role_display,
-            "District": bm.district_name,
-            "State": bm.state,
-            "First Seen": str(member.first_seen_date) if member.first_seen_date else "",
-            "Last Seen": str(member.last_seen_date) if member.last_seen_date else "",
-        })
-
-    member_df = pd.DataFrame(member_data)
-    states = sorted(member_df["State"].unique())
-    selected_state = st.selectbox("Filter by State", ["All"] + states, key="mp_state")
-    if selected_state != "All":
-        member_df = member_df[member_df["State"] == selected_state]
-
-    st.dataframe(member_df, use_container_width=True, hide_index=True)
-
-    # Detailed voting record
     st.markdown("")
-    section_header("Individual Voting Records")
-    st.caption("Select a board member with 3+ recorded roll-call votes to see their detailed record.")
 
-    members_with_votes = (session.query(
+    # State filter — shared between voting records and member table
+    member_states = sorted(set(bm.state for bm in board_members))
+    selected_state = st.selectbox(
+        "Filter by State", ["All"] + member_states, key="mp_state"
+    )
+    filtered_members = (
+        board_members if selected_state == "All"
+        else [bm for bm in board_members if bm.state == selected_state]
+    )
+
+    # ── Voting Records (primary interaction) ──
+    section_header("Voting Records")
+    st.caption("Select a board member to see their detailed voting record.")
+
+    members_with_votes = (
+        session.query(
             IndividualVote.member_name,
             func.count(IndividualVote.individual_vote_id).label("cnt"),
         )
         .group_by(IndividualVote.member_name)
         .having(func.count(IndividualVote.individual_vote_id) >= 3)
         .order_by(func.count(IndividualVote.individual_vote_id).desc())
-        .all())
-
-    if not members_with_votes:
-        st.info("No members have 3+ individual vote records yet.")
-        return
-
-    member_options = [f"{m[0]} ({m[1]} votes)" for m in members_with_votes]
-    selected_idx = st.selectbox("Select Board Member", range(len(member_options)),
-                                format_func=lambda i: member_options[i])
-    selected_name = members_with_votes[selected_idx][0]
-
-    profile = analytics.member_profile(selected_name)
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Votes", profile["total_votes"])
-    c2.metric("Yes Votes", profile["yes_votes"])
-    c3.metric("No Votes", profile["no_votes"])
-    c4.metric("Dissent Rate", f"{profile['dissent_rate']:.1%}")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        fig = member_vote_pie(profile)
-        st.plotly_chart(fig, use_container_width=True)
-    with col2:
-        if profile.get("categories"):
-            st.write("**Voting by Category:**")
-            cat_df = pd.DataFrame(profile["categories"])
-            cat_df["category"] = cat_df["category"].apply(format_category)
-            cat_df["dissent_rate"] = cat_df.apply(
-                lambda r: f"{r['no_votes']/r['total']*100:.0f}%" if r["total"] > 0 else "0%",
-                axis=1,
-            )
-            st.dataframe(cat_df, use_container_width=True, hide_index=True,
-                         column_config={
-                             "category": "Category",
-                             "total": "Total Votes",
-                             "no_votes": "No Votes",
-                             "dissent_rate": "Dissent Rate",
-                         })
-
-    section_header("Voting History")
-    records = (
-        session.query(IndividualVote, Vote, AgendaItem, Meeting, District)
-        .join(Vote, IndividualVote.vote_id == Vote.vote_id)
-        .join(AgendaItem, Vote.item_id == AgendaItem.item_id)
-        .join(Meeting, AgendaItem.meeting_id == Meeting.meeting_id)
-        .join(District, Meeting.district_id == District.district_id)
-        .filter(IndividualVote.member_name == selected_name)
-        .order_by(Meeting.meeting_date.desc())
-        .limit(50)
         .all()
     )
 
-    if records:
-        history_data = []
-        for iv, vote, item, meeting, district in records:
-            history_data.append({
-                "Date": str(meeting.meeting_date),
-                "District": district.district_name,
-                "Item": item.item_title[:80] + ("..." if len(item.item_title or "") > 80 else ""),
-                "Category": format_category(item.item_category),
-                "Vote": iv.member_vote.upper(),
-                "Result": (vote.result or "").upper(),
-                "Unanimous": "Yes" if vote.is_unanimous else "No",
+    # Filter valid names
+    valid_members = [m for m in members_with_votes if is_valid_member_name(m[0])]
+
+    # Optionally filter by selected state
+    if selected_state != "All":
+        state_member_names = set(bm.BoardMember.member_name for bm in filtered_members)
+        valid_members = [m for m in valid_members if m[0] in state_member_names]
+
+    if not valid_members:
+        st.info("No members with 3+ individual vote records match the current filter.")
+    else:
+        member_options = [f"{m[0]} ({m[1]} votes)" for m in valid_members]
+        selected_idx = st.selectbox(
+            "Select Board Member",
+            range(len(member_options)),
+            format_func=lambda i: member_options[i],
+            key="mp_member",
+        )
+        selected_name = valid_members[selected_idx][0]
+
+        profile = analytics.member_profile(selected_name)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Votes", profile["total_votes"])
+        c2.metric("Yes Votes", profile["yes_votes"])
+        c3.metric("No Votes", profile["no_votes"])
+        c4.metric("Dissent Rate", f"{profile['dissent_rate']:.1%}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = member_vote_pie(profile)
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            if profile.get("categories"):
+                st.write("**Voting by Category:**")
+                cat_df = pd.DataFrame(profile["categories"])
+                cat_df["category"] = cat_df["category"].apply(format_category)
+                cat_df["dissent_rate"] = cat_df.apply(
+                    lambda r: f"{r['no_votes']/r['total']*100:.0f}%"
+                    if r["total"] > 0 else "0%",
+                    axis=1,
+                )
+                st.dataframe(
+                    cat_df, use_container_width=True, hide_index=True,
+                    column_config={
+                        "category": "Category",
+                        "total": "Total Votes",
+                        "no_votes": "No Votes",
+                        "dissent_rate": "Dissent Rate",
+                    },
+                )
+
+        section_header("Voting History")
+        records = (
+            session.query(IndividualVote, Vote, AgendaItem, Meeting, District)
+            .join(Vote, IndividualVote.vote_id == Vote.vote_id)
+            .join(AgendaItem, Vote.item_id == AgendaItem.item_id)
+            .join(Meeting, AgendaItem.meeting_id == Meeting.meeting_id)
+            .join(District, Meeting.district_id == District.district_id)
+            .filter(IndividualVote.member_name == selected_name)
+            .order_by(Meeting.meeting_date.desc())
+            .limit(50)
+            .all()
+        )
+
+        if records:
+            history_data = []
+            for iv, vote, item, meeting, district in records:
+                history_data.append({
+                    "Date": str(meeting.meeting_date),
+                    "District": district.district_name,
+                    "Item": (
+                        item.item_title[:80]
+                        + ("..." if len(item.item_title or "") > 80 else "")
+                    ),
+                    "Category": format_category(item.item_category),
+                    "Vote": iv.member_vote.upper(),
+                    "Result": (vote.result or "").upper(),
+                    "Unanimous": "Yes" if vote.is_unanimous else "No",
+                })
+            st.dataframe(
+                pd.DataFrame(history_data),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    # ── Browse all members (secondary) ──
+    st.markdown("")
+    with st.expander(
+        f"Browse All Board Members ({len(filtered_members)})", expanded=False
+    ):
+        role_map = {
+            "president": "President/Chair",
+            "vice_president": "Vice President/Vice Chair",
+            "secretary": "Secretary/Clerk",
+            "treasurer": "Treasurer",
+            "trustee": "Trustee",
+            "member": "Member",
+        }
+        member_data = []
+        for bm in filtered_members:
+            member = bm.BoardMember
+            role_display = role_map.get(member.role, member.role or "Member")
+            member_data.append({
+                "Name": member.member_name,
+                "Role": role_display,
+                "District": bm.district_name,
+                "State": bm.state,
+                "First Seen": str(member.first_seen_date) if member.first_seen_date else "",
+                "Last Seen": str(member.last_seen_date) if member.last_seen_date else "",
             })
-        st.dataframe(pd.DataFrame(history_data), use_container_width=True, hide_index=True)
+        if member_data:
+            st.dataframe(
+                pd.DataFrame(member_data),
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
-# ── Trends page ───────────────────────────────────────────────────────────
+# ── Trends tab ───────────────────────────────────────────────────────────
 
 def render_trends(analytics):
-    st.markdown(
-        '<p class="main-title">Trends & Analytics</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="main-subtitle">'
-        'Patterns in school board voting across time, geography, and policy areas.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
-
     trends = analytics.vote_trends_by_month()
     if trends:
         st.plotly_chart(monthly_trend_chart(trends), use_container_width=True)
@@ -830,7 +978,9 @@ def render_trends(analytics):
     st.caption("Districts with the highest proportion of non-unanimous votes.")
     district_rates = analytics.district_dissent_rates()
     if district_rates:
-        st.plotly_chart(district_contested_chart(district_rates), use_container_width=True)
+        st.plotly_chart(
+            district_contested_chart(district_rates), use_container_width=True
+        )
 
 
 if __name__ == "__main__":

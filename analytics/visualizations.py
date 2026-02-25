@@ -12,12 +12,13 @@ PALETTE = [
 
 
 def _dark_layout(fig, **kwargs):
+    if "margin" not in kwargs:
+        kwargs["margin"] = dict(l=40, r=20, t=40, b=40)
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter, sans-serif"),
-        margin=dict(l=40, r=20, t=40, b=40),
         **kwargs,
     )
     return fig

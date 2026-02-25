@@ -507,13 +507,13 @@ def render_overview(db_ops, analytics, session, stats):
             key="ov_dissent",
         )
 
-    # Extraction confidence
+    # Extraction method
     st.markdown("")
-    section_header("Extraction Confidence")
+    section_header("Extraction Method")
     st.markdown(
-        "Confidence reflects how many extraction signals were present in the source "
-        "text — not whether the data is correct. All records are extracted from real "
-        "board meeting minutes and are overwhelmingly accurate regardless of confidence level."
+        "All records are extracted from real board meeting minutes published through "
+        "BoardDocs. The extraction method determines how many confirming signals were "
+        "present — records at every level are overwhelmingly accurate."
     )
     confidence_counts = (
         session.query(Vote.confidence, func.count(Vote.vote_id))
@@ -523,52 +523,59 @@ def render_overview(db_ops, analytics, session, stats):
     if confidence_counts:
         conf_data = {r[0] or "unknown": r[1] for r in confidence_counts}
         total = sum(conf_data.values())
-        conf_levels = [
+        conf_methods = [
             (
-                "High",
+                "Roll-Call & Vote Blocks",
+                "high",
                 conf_data.get("high", 0),
-                "Explicit roll-call language or structured BoardDocs vote blocks — "
-                "multiple confirming signals in the source text",
+                "Highest confidence — explicit roll-call language or structured "
+                "BoardDocs vote blocks with multiple confirming signals",
             ),
             (
-                "Medium",
+                "Multi-Pattern Match",
+                "medium",
                 conf_data.get("medium", 0),
-                "Several vote-indicating patterns matched (e.g., motion text + result "
-                "+ vote count all present)",
+                "High confidence — several vote-indicating patterns corroborate "
+                "the extracted record (e.g., motion text + result + vote count)",
             ),
             (
-                "Low",
+                "Single-Pattern Inference",
+                "low",
                 conf_data.get("low", 0),
-                "Inferred from a single pattern match — still extracted from real "
-                "meeting data, just fewer confirming signals",
+                "Moderate confidence — inferred from a single pattern match, but "
+                "still extracted from real meeting minutes",
             ),
         ]
 
         conf_df = pd.DataFrame([
-            {"Confidence": level, "Votes": count}
-            for level, count, _ in conf_levels if count > 0
+            {"Method": method, "Votes": count}
+            for method, _, count, _ in conf_methods if count > 0
         ])
 
         col1, col2 = st.columns([1, 2])
         with col1:
-            for level, count, description in conf_levels:
+            for method, _, count, note in conf_methods:
                 if count == 0:
                     continue
                 pct = count / total * 100 if total else 0
-                st.metric(f"{level} Confidence", f"{count:,} ({pct:.1f}%)")
-                st.caption(description)
+                st.metric(method, f"{count:,} ({pct:.1f}%)")
+                st.caption(note)
         with col2:
-            colors = {"High": "#00B894", "Medium": "#FDCB6E", "Low": "#FF7675"}
+            colors = {
+                "Roll-Call & Vote Blocks": "#00B894",
+                "Multi-Pattern Match": "#FDCB6E",
+                "Single-Pattern Inference": "#FF7675",
+            }
             fig = go.Figure(go.Bar(
-                x=conf_df["Confidence"], y=conf_df["Votes"],
-                marker_color=[colors.get(c, "#999") for c in conf_df["Confidence"]],
+                x=conf_df["Method"], y=conf_df["Votes"],
+                marker_color=[colors.get(m, "#999") for m in conf_df["Method"]],
                 text=conf_df["Votes"], textposition="outside",
             ))
             fig.update_layout(
                 template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="Inter, sans-serif"),
-                title="Extraction Confidence Distribution",
+                title="Votes by Extraction Method",
                 height=350, margin=dict(l=40, r=20, t=40, b=40),
                 yaxis=dict(range=[0, max(conf_df["Votes"]) * 1.18]),
             )

@@ -392,12 +392,14 @@ def main():
 
     st.sidebar.markdown("")
     st.sidebar.markdown(
-        "<div style='font-size: 0.8rem; color: #94A3B8;'>"
-        "Built by <strong>Nathan Goldberg</strong><br>"
-        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3;'>Email</a>"
-        " &nbsp;|&nbsp; "
+        "<div style='color: #E2E8F0; padding: 8px 0;'>"
+        "<p style='font-family: Inter, sans-serif; font-size: 1rem; font-weight: 600; "
+        "color: #FFFFFF; margin-bottom: 4px;'>Built by Nathan Goldberg</p>"
+        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3; "
+        "font-size: 0.9rem; text-decoration: none;'>Email</a>"
+        " &nbsp;&bull;&nbsp; "
         "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' "
-        "style='color: #0984E3;'>LinkedIn</a>"
+        "style='color: #0984E3; font-size: 0.9rem; text-decoration: none;'>LinkedIn</a>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -416,6 +418,25 @@ def main():
         unsafe_allow_html=True,
     )
 
+    # ── Overview / Proof of Concept Note ──────────────────────────────
+    st.markdown(
+        "<div style='background: #1B2A4A; border: 1px solid #334155; border-radius: 10px; "
+        "padding: 20px 24px; margin-bottom: 1.2rem; line-height: 1.7;'>"
+        "<span style='font-family: Inter, sans-serif; font-size: 0.95rem; color: #E2E8F0;'>"
+        "This dashboard presents the first structured database of school board voting records "
+        "in the United States — extracted from public BoardDocs meeting minutes using a "
+        "zero-cost rule engine (no LLM API calls). The current dataset covers "
+        "<strong>{n_districts:,} districts</strong> across <strong>{n_states} states</strong> with "
+        "<strong>{n_votes:,} votes</strong> and serves as a <strong>proof of concept</strong> "
+        "for nationwide coverage. Expansion to thousands of additional districts is underway."
+        "</span></div>".format(
+            n_districts=stats["total_districts"],
+            n_states=len(set(s["state"] for s in analytics.votes_by_state())) if analytics.votes_by_state() else 0,
+            n_votes=stats["total_votes"],
+        ),
+        unsafe_allow_html=True,
+    )
+
     tabs = st.tabs(["Overview", "Board Members", "Explore"])
 
     with tabs[0]:
@@ -429,16 +450,18 @@ def main():
     st.markdown("")
     st.divider()
     st.markdown(
-        "<div style='text-align: center; color: #94A3B8; font-size: 0.8rem; padding: 8px 0;'>"
+        "<div style='text-align: center; padding: 16px 0;'>"
+        "<p style='font-family: Inter, sans-serif; font-size: 1.3rem; font-weight: 600; "
+        "color: #FFFFFF; margin-bottom: 6px;'>Built by Nathan Goldberg</p>"
+        "<p style='font-family: Inter, sans-serif; font-size: 1rem; margin-top: 0; margin-bottom: 16px;'>"
+        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3; text-decoration: none;'>nathanmauricegoldberg@gmail.com</a>"
+        " &nbsp;&bull;&nbsp; "
+        "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' "
+        "style='color: #0984E3; text-decoration: none;'>LinkedIn</a></p>"
+        "<p style='font-family: Inter, sans-serif; font-size: 0.8rem; color: #94A3B8; margin-top: 0;'>"
         "School Board Vote Tracker &bull; "
         "Data extracted from public BoardDocs minutes using a zero-cost rule engine &bull; "
-        "No LLM API calls required"
-        "<br>"
-        "Built by <strong>Nathan Goldberg</strong> &nbsp;|&nbsp; "
-        "<a href='mailto:nathanmauricegoldberg@gmail.com' style='color: #0984E3; "
-        "text-decoration: none;'>nathanmauricegoldberg@gmail.com</a> &nbsp;|&nbsp; "
-        "<a href='https://www.linkedin.com/in/nathan-goldberg-62a44522a' target='_blank' "
-        "style='color: #0984E3; text-decoration: none;'>LinkedIn</a>"
+        "No LLM API calls required</p>"
         "</div>",
         unsafe_allow_html=True,
     )

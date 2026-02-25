@@ -248,10 +248,9 @@ def _render_vote_expander(vote, item, meeting, district):
 
 # ── Page config & CSS ─────────────────────────────────────────────────────
 
-_favicon = Path(__file__).resolve().parent.parent / ".streamlit" / "favicon.png"
 st.set_page_config(
     page_title="School Board Vote Tracker",
-    page_icon=str(_favicon) if _favicon.exists() else ":classical_building:",
+    page_icon="\U0001f3eb",
     layout="wide",
     initial_sidebar_state="expanded",
 )

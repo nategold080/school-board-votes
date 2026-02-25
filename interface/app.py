@@ -14,7 +14,7 @@ import re
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from sqlalchemy import func
+from sqlalchemy import func, case
 
 from config.settings import DATABASE_PATH
 from database.models import (
@@ -132,6 +132,77 @@ def completeness_score(vote, item):
     if vote.motion_maker or vote.motion_seconder:
         score += 1
     return score
+
+
+def _render_member_detail(profile, analytics, session, key_prefix):
+    """Render the full profile for a selected board member.
+
+    *key_prefix* ensures plotly_chart keys are unique across sections.
+    """
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Votes", profile["total_votes"])
+    c2.metric("Yes Votes", profile["yes_votes"])
+    c3.metric("No Votes", profile["no_votes"])
+    c4.metric("Dissent Rate", f"{profile['dissent_rate']:.1%}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        fig = member_vote_pie(profile)
+        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_pie")
+    with col2:
+        if profile.get("categories"):
+            st.write("**Voting by Category:**")
+            cat_df = pd.DataFrame(profile["categories"])
+            cat_df["category"] = cat_df["category"].apply(format_category)
+            cat_df["dissent_rate"] = cat_df.apply(
+                lambda r: f"{r['no_votes']/r['total']*100:.0f}%"
+                if r["total"] > 0 else "0%",
+                axis=1,
+            )
+            st.dataframe(
+                cat_df, use_container_width=True, hide_index=True,
+                column_config={
+                    "category": "Category",
+                    "total": "Total Votes",
+                    "no_votes": "No Votes",
+                    "dissent_rate": "Dissent Rate",
+                },
+            )
+
+    section_header("Voting History")
+    selected_name = profile["member_name"]
+    records = (
+        session.query(IndividualVote, Vote, AgendaItem, Meeting, District)
+        .join(Vote, IndividualVote.vote_id == Vote.vote_id)
+        .join(AgendaItem, Vote.item_id == AgendaItem.item_id)
+        .join(Meeting, AgendaItem.meeting_id == Meeting.meeting_id)
+        .join(District, Meeting.district_id == District.district_id)
+        .filter(IndividualVote.member_name == selected_name)
+        .order_by(Meeting.meeting_date.desc())
+        .limit(50)
+        .all()
+    )
+
+    if records:
+        history_data = []
+        for iv, vote, item, meeting, district in records:
+            history_data.append({
+                "Date": str(meeting.meeting_date),
+                "District": district.district_name,
+                "Item": (
+                    item.item_title[:80]
+                    + ("..." if len(item.item_title or "") > 80 else "")
+                ),
+                "Category": format_category(item.item_category),
+                "Vote": iv.member_vote.upper(),
+                "Result": (vote.result or "").upper(),
+                "Unanimous": "Yes" if vote.is_unanimous else "No",
+            })
+        st.dataframe(
+            pd.DataFrame(history_data),
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 # ── Page config & CSS ─────────────────────────────────────────────────────
@@ -380,10 +451,18 @@ def render_overview(db_ops, analytics, session, stats):
         if categories:
             for c in categories:
                 c["category"] = format_category(c["category"])
-            st.plotly_chart(category_vote_chart(categories), use_container_width=True)
+            st.plotly_chart(
+                category_vote_chart(categories),
+                use_container_width=True,
+                key="ov_category",
+            )
     with col2:
         if states:
-            st.plotly_chart(state_comparison_chart(states), use_container_width=True)
+            st.plotly_chart(
+                state_comparison_chart(states),
+                use_container_width=True,
+                key="ov_state",
+            )
 
     # Charts Row 2
     col1, col2 = st.columns(2)
@@ -392,11 +471,19 @@ def render_overview(db_ops, analytics, session, stats):
         if contested_cats:
             for c in contested_cats:
                 c["category"] = format_category(c["category"])
-            st.plotly_chart(dissent_rate_chart(contested_cats), use_container_width=True)
+            st.plotly_chart(
+                dissent_rate_chart(contested_cats),
+                use_container_width=True,
+                key="ov_dissent",
+            )
     with col2:
         trends = analytics.vote_trends_by_month()
         if trends:
-            st.plotly_chart(monthly_trend_chart(trends), use_container_width=True)
+            st.plotly_chart(
+                monthly_trend_chart(trends),
+                use_container_width=True,
+                key="ov_monthly",
+            )
 
     # Top dissenters
     section_header("Most Frequent Dissenters")
@@ -451,9 +538,10 @@ def render_overview(db_ops, analytics, session, stats):
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="Inter, sans-serif"),
                 title="Vote Confidence Distribution",
-                height=300, margin=dict(l=40, r=20, t=40, b=40),
+                height=350, margin=dict(l=40, r=20, t=40, b=40),
+                yaxis=dict(range=[0, max(conf_df["Votes"]) * 1.18]),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="ov_confidence")
         st.caption(
             "**High** confidence votes have explicit roll-call language or structured BoardDocs vote blocks. "
             "**Medium** confidence votes match multiple vote-indicating patterns. "
@@ -781,176 +869,200 @@ def render_vote_search(db_ops):
 
 # ── Board Members tab ────────────────────────────────────────────────────
 
+@st.cache_data(ttl=600)
+def _get_featured_members(_session):
+    """Return a list of board members with the most interesting voting records.
+
+    Criteria: valid name, at least 30 total votes, at least 1 no or abstain,
+    sorted by dissent rate descending.
+    """
+    rows = (
+        _session.query(
+            IndividualVote.member_name,
+            func.count(IndividualVote.individual_vote_id).label("total"),
+            func.sum(case((IndividualVote.member_vote == "yes", 1), else_=0)).label("yes"),
+            func.sum(case((IndividualVote.member_vote == "no", 1), else_=0)).label("no"),
+            func.sum(case((IndividualVote.member_vote == "abstain", 1), else_=0)).label("abstain"),
+        )
+        .group_by(IndividualVote.member_name)
+        .having(func.count(IndividualVote.individual_vote_id) >= 30)
+        .having(
+            (func.sum(case((IndividualVote.member_vote == "no", 1), else_=0))
+             + func.sum(case((IndividualVote.member_vote == "abstain", 1), else_=0))) >= 1
+        )
+        .order_by(
+            (func.sum(case((IndividualVote.member_vote == "no", 1), else_=0))
+             * 100.0 / func.count(IndividualVote.individual_vote_id)).desc()
+        )
+        .all()
+    )
+    featured = []
+    for r in rows:
+        name = r[0]
+        if not is_valid_member_name(name):
+            continue
+        featured.append({
+            "name": name,
+            "total": r[1],
+            "yes": r[2],
+            "no": r[3],
+            "abstain": r[4],
+            "dissent_pct": round(r[3] / r[1] * 100, 1) if r[1] else 0,
+        })
+        if len(featured) >= 25:
+            break
+    return featured
+
+
 def render_member_profiles(analytics, session):
+    # ── Featured Board Members (top section) ──
+    section_header("Featured Board Members")
+    st.caption(
+        "Board members with the most detailed and interesting voting records — "
+        "including contested votes, dissent, and abstentions."
+    )
+
+    featured = _get_featured_members(session)
+
+    if featured:
+        feat_options = [
+            f"{m['name']} — {m['total']} votes, {m['no']} No, "
+            f"{m['abstain']} Abstain ({m['dissent_pct']}% dissent)"
+            for m in featured
+        ]
+        feat_idx = st.selectbox(
+            "Select a featured board member",
+            range(len(feat_options)),
+            format_func=lambda i: feat_options[i],
+            key="feat_member",
+        )
+        feat_name = featured[feat_idx]["name"]
+        profile = analytics.member_profile(feat_name)
+        _render_member_detail(profile, analytics, session, key_prefix="feat")
+    else:
+        st.info("No featured members available.")
+
+    st.markdown("")
+    st.markdown("")
+
+    # ── Search All Board Members (bottom section) ──
+    section_header("Search All Board Members")
+    st.caption(
+        "Search by state, district, or member name to find any board member in the database."
+    )
+
     board_members = (
         session.query(BoardMember, District.district_name, District.state)
         .join(District, BoardMember.district_id == District.district_id)
         .order_by(District.state, District.district_name, BoardMember.member_name)
         .all()
     )
-
-    if not board_members:
-        st.warning("No board member records available.")
-        return
-
-    # Filter out extraction noise
     board_members = [
         bm for bm in board_members if is_valid_member_name(bm.BoardMember.member_name)
     ]
 
-    total_members = len(board_members)
-    districts_with_members = len(set(bm.BoardMember.district_id for bm in board_members))
-    states_with_members = len(set(bm.state for bm in board_members))
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Board Members", total_members)
-    c2.metric("Across Districts", districts_with_members)
-    c3.metric("In States", states_with_members)
-
-    st.markdown("")
-
-    # State filter — shared between voting records and member table
-    member_states = sorted(set(bm.state for bm in board_members))
-    selected_state = st.selectbox(
-        "Filter by State", ["All"] + member_states, key="mp_state"
-    )
-    filtered_members = (
-        board_members if selected_state == "All"
-        else [bm for bm in board_members if bm.state == selected_state]
-    )
-
-    # ── Voting Records (primary interaction) ──
-    section_header("Voting Records")
-    st.caption("Select a board member to see their detailed voting record.")
-
-    members_with_votes = (
-        session.query(
-            IndividualVote.member_name,
-            func.count(IndividualVote.individual_vote_id).label("cnt"),
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        member_states = sorted(set(bm.state for bm in board_members))
+        search_state = st.selectbox(
+            "State", ["All"] + member_states, key="bm_search_state"
         )
-        .group_by(IndividualVote.member_name)
-        .having(func.count(IndividualVote.individual_vote_id) >= 3)
-        .order_by(func.count(IndividualVote.individual_vote_id).desc())
-        .all()
-    )
-
-    # Filter valid names
-    valid_members = [m for m in members_with_votes if is_valid_member_name(m[0])]
-
-    # Optionally filter by selected state
-    if selected_state != "All":
-        state_member_names = set(bm.BoardMember.member_name for bm in filtered_members)
-        valid_members = [m for m in valid_members if m[0] in state_member_names]
-
-    if not valid_members:
-        st.info("No members with 3+ individual vote records match the current filter.")
-    else:
-        member_options = [f"{m[0]} ({m[1]} votes)" for m in valid_members]
-        selected_idx = st.selectbox(
-            "Select Board Member",
-            range(len(member_options)),
-            format_func=lambda i: member_options[i],
-            key="mp_member",
+    with col2:
+        search_name = st.text_input(
+            "Member Name", placeholder="e.g., Smith", key="bm_search_name"
         )
-        selected_name = valid_members[selected_idx][0]
-
-        profile = analytics.member_profile(selected_name)
-
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Votes", profile["total_votes"])
-        c2.metric("Yes Votes", profile["yes_votes"])
-        c3.metric("No Votes", profile["no_votes"])
-        c4.metric("Dissent Rate", f"{profile['dissent_rate']:.1%}")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            fig = member_vote_pie(profile)
-            st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            if profile.get("categories"):
-                st.write("**Voting by Category:**")
-                cat_df = pd.DataFrame(profile["categories"])
-                cat_df["category"] = cat_df["category"].apply(format_category)
-                cat_df["dissent_rate"] = cat_df.apply(
-                    lambda r: f"{r['no_votes']/r['total']*100:.0f}%"
-                    if r["total"] > 0 else "0%",
-                    axis=1,
-                )
-                st.dataframe(
-                    cat_df, use_container_width=True, hide_index=True,
-                    column_config={
-                        "category": "Category",
-                        "total": "Total Votes",
-                        "no_votes": "No Votes",
-                        "dissent_rate": "Dissent Rate",
-                    },
-                )
-
-        section_header("Voting History")
-        records = (
-            session.query(IndividualVote, Vote, AgendaItem, Meeting, District)
-            .join(Vote, IndividualVote.vote_id == Vote.vote_id)
-            .join(AgendaItem, Vote.item_id == AgendaItem.item_id)
-            .join(Meeting, AgendaItem.meeting_id == Meeting.meeting_id)
-            .join(District, Meeting.district_id == District.district_id)
-            .filter(IndividualVote.member_name == selected_name)
-            .order_by(Meeting.meeting_date.desc())
-            .limit(50)
-            .all()
+    with col3:
+        search_district = st.text_input(
+            "District", placeholder="e.g., Rochester", key="bm_search_district"
         )
 
-        if records:
-            history_data = []
-            for iv, vote, item, meeting, district in records:
-                history_data.append({
-                    "Date": str(meeting.meeting_date),
-                    "District": district.district_name,
-                    "Item": (
-                        item.item_title[:80]
-                        + ("..." if len(item.item_title or "") > 80 else "")
-                    ),
-                    "Category": format_category(item.item_category),
-                    "Vote": iv.member_vote.upper(),
-                    "Result": (vote.result or "").upper(),
-                    "Unanimous": "Yes" if vote.is_unanimous else "No",
+    # Only show results if a filter is applied
+    has_filter = (
+        search_state != "All"
+        or (search_name and search_name.strip())
+        or (search_district and search_district.strip())
+    )
+
+    if has_filter:
+        filtered = board_members
+        if search_state != "All":
+            filtered = [bm for bm in filtered if bm.state == search_state]
+        if search_name and search_name.strip():
+            q = search_name.strip().lower()
+            filtered = [
+                bm for bm in filtered
+                if q in bm.BoardMember.member_name.lower()
+            ]
+        if search_district and search_district.strip():
+            q = search_district.strip().lower()
+            filtered = [bm for bm in filtered if q in bm.district_name.lower()]
+
+        st.write(f"**{len(filtered)}** board members found")
+
+        if filtered:
+            role_map = {
+                "president": "President/Chair",
+                "vice_president": "Vice President/Vice Chair",
+                "secretary": "Secretary/Clerk",
+                "treasurer": "Treasurer",
+                "trustee": "Trustee",
+                "member": "Member",
+            }
+            member_data = []
+            for bm in filtered:
+                member = bm.BoardMember
+                role_display = role_map.get(member.role, member.role or "Member")
+                member_data.append({
+                    "Name": member.member_name,
+                    "Role": role_display,
+                    "District": bm.district_name,
+                    "State": bm.state,
+                    "First Seen": str(member.first_seen_date) if member.first_seen_date else "",
+                    "Last Seen": str(member.last_seen_date) if member.last_seen_date else "",
                 })
-            st.dataframe(
-                pd.DataFrame(history_data),
-                use_container_width=True,
-                hide_index=True,
-            )
-
-    # ── Browse all members (secondary) ──
-    st.markdown("")
-    with st.expander(
-        f"Browse All Board Members ({len(filtered_members)})", expanded=False
-    ):
-        role_map = {
-            "president": "President/Chair",
-            "vice_president": "Vice President/Vice Chair",
-            "secretary": "Secretary/Clerk",
-            "treasurer": "Treasurer",
-            "trustee": "Trustee",
-            "member": "Member",
-        }
-        member_data = []
-        for bm in filtered_members:
-            member = bm.BoardMember
-            role_display = role_map.get(member.role, member.role or "Member")
-            member_data.append({
-                "Name": member.member_name,
-                "Role": role_display,
-                "District": bm.district_name,
-                "State": bm.state,
-                "First Seen": str(member.first_seen_date) if member.first_seen_date else "",
-                "Last Seen": str(member.last_seen_date) if member.last_seen_date else "",
-            })
-        if member_data:
             st.dataframe(
                 pd.DataFrame(member_data),
                 use_container_width=True,
                 hide_index=True,
             )
+
+            # Detailed lookup
+            members_with_votes = (
+                session.query(
+                    IndividualVote.member_name,
+                    func.count(IndividualVote.individual_vote_id).label("cnt"),
+                )
+                .group_by(IndividualVote.member_name)
+                .having(func.count(IndividualVote.individual_vote_id) >= 3)
+                .order_by(func.count(IndividualVote.individual_vote_id).desc())
+                .all()
+            )
+            vote_name_set = set(m[0] for m in members_with_votes if is_valid_member_name(m[0]))
+            filtered_names = set(bm.BoardMember.member_name for bm in filtered)
+            selectable = [
+                m for m in members_with_votes
+                if m[0] in filtered_names and is_valid_member_name(m[0])
+            ]
+
+            if selectable:
+                st.markdown("")
+                section_header("View Detailed Voting Record")
+                opts = [f"{m[0]} ({m[1]} votes)" for m in selectable]
+                sel_idx = st.selectbox(
+                    "Select Board Member",
+                    range(len(opts)),
+                    format_func=lambda i: opts[i],
+                    key="bm_detail_member",
+                )
+                sel_name = selectable[sel_idx][0]
+                profile = analytics.member_profile(sel_name)
+                _render_member_detail(
+                    profile, analytics, session, key_prefix="search"
+                )
+    else:
+        st.info(
+            "Use the filters above to search for board members by state, name, or district."
+        )
 
 
 # ── Trends tab ───────────────────────────────────────────────────────────
@@ -958,7 +1070,11 @@ def render_member_profiles(analytics, session):
 def render_trends(analytics):
     trends = analytics.vote_trends_by_month()
     if trends:
-        st.plotly_chart(monthly_trend_chart(trends), use_container_width=True)
+        st.plotly_chart(
+            monthly_trend_chart(trends),
+            use_container_width=True,
+            key="tr_monthly",
+        )
 
     col1, col2 = st.columns(2)
     with col1:
@@ -966,20 +1082,30 @@ def render_trends(analytics):
         if categories:
             for c in categories:
                 c["category"] = format_category(c["category"])
-            st.plotly_chart(category_vote_chart(categories), use_container_width=True)
+            st.plotly_chart(
+                category_vote_chart(categories),
+                use_container_width=True,
+                key="tr_category",
+            )
     with col2:
         contested = analytics.most_contested_categories()
         if contested:
             for c in contested:
                 c["category"] = format_category(c["category"])
-            st.plotly_chart(dissent_rate_chart(contested), use_container_width=True)
+            st.plotly_chart(
+                dissent_rate_chart(contested),
+                use_container_width=True,
+                key="tr_dissent",
+            )
 
     section_header("District Comparison: Contested Vote Rates")
     st.caption("Districts with the highest proportion of non-unanimous votes.")
     district_rates = analytics.district_dissent_rates()
     if district_rates:
         st.plotly_chart(
-            district_contested_chart(district_rates), use_container_width=True
+            district_contested_chart(district_rates),
+            use_container_width=True,
+            key="tr_district",
         )
 
 

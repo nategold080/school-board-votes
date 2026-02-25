@@ -140,8 +140,9 @@ def member_vote_pie(profile: dict) -> go.Figure:
         marker_colors=["#00B894", "#FF7675", "#FDCB6E"],
         hole=0.45,
     ))
-    _dark_layout(fig, height=350,
-                 title=f"Voting Record: {profile['member_name']}")
+    _dark_layout(fig, height=420,
+                 title=f"Voting Record: {profile['member_name']}",
+                 margin=dict(l=20, r=20, t=60, b=20))
     return fig
 
 
